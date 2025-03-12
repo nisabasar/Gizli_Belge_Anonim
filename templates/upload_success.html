@@ -1,0 +1,20 @@
+{% extends 'base.html' %} {% block content %}
+<div class="card">
+  <div class="card-header bg-success text-white">
+    <h3>Makale Yüklendi!</h3>
+  </div>
+  <div class="card-body">
+    <p>
+      Makaleniz başarıyla yüklendi. Takip numaranız:
+      <strong>{{ tracking_number }}</strong>
+    </p>
+    <p>
+      Lütfen bu numarayı kaydedin; makalenizin durumunu sorgulamak için bu
+      numarayı kullanacaksınız.
+    </p>
+    <a href="{% url 'status' %}" class="btn btn-primary"
+      >Durum Sorgulama Sayfasına Git</a
+    >
+  </div>
+</div>
+{% endblock %}

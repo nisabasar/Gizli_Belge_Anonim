@@ -1,0 +1,85 @@
+<!-- admin_panel.html -->
+{% extends 'base.html' %} {% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
+    <h3><i class="fas fa-tools"></i> Yönetici Paneli</h3>
+    <div>
+      <a href="{% url 'editor_logs' %}" class="btn btn-info btn-sm"
+        >Log Kayıtları</a
+      >
+      <a href="{% url 'editor_messages' %}" class="btn btn-warning btn-sm"
+        >Mesajlar</a
+      >
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="thead-dark">
+          <tr>
+            <th>Takip No</th>
+            <th>Dosya</th>
+            <th>Statü</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sub in submissions %}
+          <tr>
+            <td>{{ sub.tracking_number }}</td>
+            <td>
+              <a
+                href="{% url 'view_pdf' sub.tracking_number %}"
+                class="btn btn-primary btn-sm"
+                >PDF Görüntüle</a
+              >
+            </td>
+            <td>{{ sub.status }}</td>
+            <td>
+              <a
+                href="{% url 'extract_keywords_view' sub.tracking_number %}"
+                class="btn btn-secondary btn-sm"
+              >
+                Anahtar Kelime Çıkar
+              </a>
+              {% if sub.status == "Gönderildi" or sub.status == "Revize" %}
+              <a
+                href="{% url 'anonymize_view' sub.tracking_number %}"
+                class="btn btn-secondary btn-sm"
+              >
+                Anonimleştir
+              </a>
+              {% endif %} {% if sub.status == "Anonimleştirildi" %}
+              <a
+                href="{% url 'assign_reviewer' sub.tracking_number %}"
+                class="btn btn-warning btn-sm"
+              >
+                Hakeme Ata
+              </a>
+              {% endif %} {% if sub.status == "Değerlendirildi" %}
+              <a
+                href="{% url 'request_revision' sub.tracking_number %}"
+                class="btn btn-info btn-sm"
+              >
+                Revize Gerekli
+              </a>
+              <a
+                href="{% url 'finalize_view' sub.tracking_number %}"
+                class="btn btn-dark btn-sm"
+              >
+                Final PDF Oluştur
+              </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4">Makale yok.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

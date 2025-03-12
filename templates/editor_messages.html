@@ -1,0 +1,48 @@
+{% extends 'base.html' %} {% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
+    <h3>Mesajlar</h3>
+    <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm"
+      >GERİ DÖN</a
+    >
+  </div>
+  <div class="card-body">
+    {% if all_msgs %}
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead class="thead-dark">
+          <tr>
+            <th>Takip No</th>
+            <th>Gönderen</th>
+            <th>E-posta</th>
+            <th>Mesaj</th>
+            <th>Tarih</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for msg in all_msgs %}
+          <tr>
+            <td>{{ msg.submission.tracking_number }}</td>
+            <td>{{ msg.sender }}</td>
+            <td>{{ msg.sender_email }}</td>
+            <td>{{ msg.content }}</td>
+            <td>{{ msg.timestamp|date:"d M Y, g:i A" }}</td>
+            <td>
+              <a
+                href="{% url 'reply_to_message' msg.id %}"
+                class="btn btn-dark btn-sm"
+                >Cevap Ver</a
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p>Hiç mesaj yok.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'base.html' %} {% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white">
+    <h3><i class="fas fa-upload"></i> Makale Yükleme</h3>
+  </div>
+  <div class="card-body">
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %} {{ form.as_p }}
+      <button type="submit" class="btn btn-dark">Yükle</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

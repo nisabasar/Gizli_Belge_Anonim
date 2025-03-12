@@ -1,0 +1,26 @@
+{% extends 'base.html' %} {% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
+    <h3>Makale Mesajları (Takip No: {{ submission.tracking_number }})</h3>
+    <a href="{% url 'status' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
+  </div>
+  <div class="card-body">
+    {% if msgs %}
+    <ul class="list-group">
+      {% for msg in msgs %}
+      <li class="list-group-item">
+        <strong>Gönderen:</strong> {{ msg.sender }}{% if msg.sender_email %} ({{
+        msg.sender_email }}){% endif %}<br />
+        {{ msg.content }}
+        <span class="badge badge-light float-right"
+          >{{ msg.timestamp|date:"d M Y, g:i A" }}</span
+        >
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>Bu makaleye ait mesaj yok.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %} {% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
+    <h3>Hakem Paneli</h3>
+    <a href="{% url 'reviewer_dashboard' %}" class="btn btn-light btn-sm"
+      >GERİ DÖN</a
+    >
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead class="thead-dark">
+          <tr>
+            <th>Takip No</th>
+            <th>Dosya</th>
+            <th>Statü</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sub in submissions %}
+          <tr>
+            <td>{{ sub.tracking_number }}</td>
+            <td>
+              {% if sub.anonymized_pdf %}
+              <a
+                href="{{ sub.anonymized_pdf.url }}"
+                class="btn btn-secondary btn-sm"
+                >Anonim PDF</a
+              >
+            </td>
+            <td>{{ sub.status }}</td>
+            <td>
+              {% if sub.status == "Hakeme Atandı" or sub.status ==
+              "Değerlendirildi" %}
+              <a
+                href="{% url 'review_view' sub.tracking_number %}"
+                class="btn btn-dark btn-sm"
+                >Değerlendir</a
+              >
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4">Atanmış makale bulunamadı.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

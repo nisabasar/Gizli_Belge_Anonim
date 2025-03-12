@@ -1,0 +1,6 @@
+Django==5.1.7
+spacy==3.5.0
+PyMuPDF==1.21.1
+Pillow==9.5.0
+PyPDF2==3.0.1
+cryptography==40.0.2

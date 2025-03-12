@@ -1,0 +1,36 @@
+{% extends 'base.html' %} {% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
+    <h3>Log Kayıtları</h3>
+    <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm"
+      >GERİ DÖN</a
+    >
+  </div>
+  <div class="card-body">
+    {% if logs %}
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead class="thead-dark">
+          <tr>
+            <th>Takip No</th>
+            <th>Aksiyon</th>
+            <th>Tarih</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td>{{ log.submission.tracking_number }}</td>
+            <td>{{ log.action }}</td>
+            <td>{{ log.timestamp|date:"d M Y, g:i A" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p>Log kaydı bulunamadı.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

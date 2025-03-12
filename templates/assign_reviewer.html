@@ -1,0 +1,47 @@
+{% extends 'base.html' %} {% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
+    <h3>Hakem Atama (Takip No: {{ submission.tracking_number }})</h3>
+    <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm"
+      >GERİ DÖN</a
+    >
+  </div>
+  <div class="card-body">
+    <p>
+      <strong>Makalenin Alanları:</strong>
+      {% for d in submission.domains.all %}
+      <span class="badge badge-info">{{ d.name }}</span>
+      {% endfor %}
+    </p>
+    <hr />
+    <h5>Uyumlu Hakemler:</h5>
+    {% if matching_reviewers %}
+    <ul>
+      {% for rev in matching_reviewers %}
+      <li>
+        {{ rev.name }} ({{ rev.email }}) – İlgi Alanları: {% for domain in
+        rev.interests.all %}
+        <span class="badge badge-secondary">{{ domain.name }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>Bu alanlara uygun hakem bulunamadı.</p>
+    {% endif %}
+    <hr />
+    <form method="POST">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="reviewer_id">Hakem Seçiniz:</label>
+        <select name="reviewer_id" class="form-control">
+          <option value="">-- Seçin --</option>
+          {% for rev in matching_reviewers %}
+          <option value="{{ rev.id }}">{{ rev.name }} ({{ rev.email }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-dark">Ata</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
