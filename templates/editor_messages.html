@@ -1,10 +1,9 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
+{% block content %}
 <div class="card">
   <div class="card-header bg-dark text-white d-flex justify-content-between">
     <h3>Mesajlar</h3>
-    <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm"
-      >GERİ DÖN</a
-    >
+    <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
   </div>
   <div class="card-body">
     {% if all_msgs %}
@@ -29,11 +28,7 @@
             <td>{{ msg.content }}</td>
             <td>{{ msg.timestamp|date:"d M Y, g:i A" }}</td>
             <td>
-              <a
-                href="{% url 'reply_to_message' msg.id %}"
-                class="btn btn-dark btn-sm"
-                >Cevap Ver</a
-              >
+              <a href="{% url 'reply_to_message' msg.id %}" class="btn btn-dark btn-sm">Cevap Ver</a>
             </td>
           </tr>
           {% endfor %}

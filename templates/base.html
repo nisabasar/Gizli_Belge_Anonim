@@ -3,66 +3,37 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <title>Makale Anonimleştirme Sistemi</title>
+    <title>Belge Anonimleştirme</title>
+    <link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootswatch/4.5.2/lux/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
     <link rel="stylesheet" href="{% static 'css/style.css' %}" />
-    <link
-      rel="stylesheet"
-      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
-    />
-    <!-- Font Awesome (ikonler) -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
-    />
-    <style>
-      body {
-        padding-top: 70px;
-      }
-    </style>
   </head>
-  <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+  <body style="display: flex; flex-direction: column; min-height: 100%">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container">
-        <a class="navbar-brand" href="{% url 'home' %}">Sistem</a>
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-toggle="collapse"
-          data-target="#mainNavbar"
-        >
+        <a class="navbar-brand" href="{% url 'home' %}">BELGE ANONİMLEŞTİRME</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="mainNavbar">
           <ul class="navbar-nav ml-auto">
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'upload_paper' %}">
-                <i class="fas fa-upload"></i> Makale Yükle
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'status' %}">
-                <i class="fas fa-search"></i> Durum Sorgula
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'editor_dashboard' %}">
-                <i class="fas fa-tools"></i> Yönetici Paneli
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'reviewer_dashboard' %}">
-                <i class="fas fa-user-check"></i> Hakem Paneli
-              </a>
-            </li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'upload_paper' %}"><i class="fas fa-upload"></i> Makale Yükleme</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'status' %}"><i class="fas fa-search"></i> Durum Sorgulama</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'editor_dashboard' %}"><i class="fas fa-tools"></i> Yönetici Paneli</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'reviewer_dashboard' %}"><i class="fas fa-user-check"></i> Hakem Paneli</a></li>
           </ul>
         </div>
       </div>
     </nav>
-    <div class="container mt-4">
-      {% if messages %} {% for message in messages %}
-      <div class="alert alert-info">{{ message }}</div>
-      {% endfor %} {% endif %} {% block content %}{% endblock %}
+    <div class="container my-4">
+      {% block content %}{% endblock %}
     </div>
+    <footer class="footer bg-primary text-light py-3 mt-auto">
+      <div class="container text-center">
+        <span>&copy; 2025 Belge Anonimleştirme Sistemi. Tüm hakları saklıdır.</span>
+      </div>
+    </footer>
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>

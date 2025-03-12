@@ -1,90 +1,39 @@
-{% extends "base.html" %} {% load static %} {% block content %}
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
 <div class="container my-4">
   <div class="card">
-    <!-- Kart Başlığı (koyu renk) -->
-    <div
-      class="card-header bg-dark text-white d-flex justify-content-between align-items-center"
-    >
-      <h4 class="mb-0">
-        Anonimleştirme Seçenekleri (Takip No: {{ submission.tracking_number }})
-      </h4>
-      <!-- Küçük "Geri Dön" butonu -->
-      <a href="/makalesistemi/yonetici/" class="btn btn-secondary btn-sm">
-        Geri Dön
-      </a>
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">Anonimleştirme Seçenekleri (Takip No: {{ submission.tracking_number }})</h4>
+      <a href="{% url 'editor_dashboard' %}" class="btn btn-secondary btn-sm">Geri Dön</a>
     </div>
-
     <div class="card-body">
       <form method="post" id="anonymizeForm">
         {% csrf_token %}
-
-        <!-- Yazar Ad-Soyad -->
         <div class="form-check mb-3">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            name="anon_name"
-            id="anon_name"
-            onclick="checkForm()"
-          />
-          <label class="form-check-label" for="anon_name">
-            Yazar Ad-Soyad
-          </label>
+          <input class="form-check-input" type="checkbox" name="anon_name" id="anon_name" onclick="checkForm()" />
+          <label class="form-check-label" for="anon_name">Yazar Ad-Soyad</label>
         </div>
-
-        <!-- Yazar İletişim Bilgileri -->
         <div class="form-check mb-3">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            name="anon_contact"
-            id="anon_contact"
-            onclick="checkForm()"
-          />
-          <label class="form-check-label" for="anon_contact">
-            Yazar İletişim Bilgileri
-          </label>
+          <input class="form-check-input" type="checkbox" name="anon_contact" id="anon_contact" onclick="checkForm()" />
+          <label class="form-check-label" for="anon_contact">Yazar İletişim Bilgileri</label>
         </div>
-
-        <!-- Yazar Kurum Bilgileri -->
         <div class="form-check mb-3">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            name="anon_institution"
-            id="anon_institution"
-            onclick="checkForm()"
-          />
-          <label class="form-check-label" for="anon_institution">
-            Yazar Kurum Bilgileri
-          </label>
+          <input class="form-check-input" type="checkbox" name="anon_institution" id="anon_institution" onclick="checkForm()" />
+          <label class="form-check-label" for="anon_institution">Yazar Kurum Bilgileri</label>
         </div>
-
-        <!-- "Anonimleştir" butonu (başlangıçta devre dışı) -->
-        <button type="submit" class="btn btn-primary" id="anonSubmit" disabled>
-          Anonimleştir
-        </button>
+        <button type="submit" class="btn btn-primary" id="anonSubmit" disabled>Anonimleştir</button>
       </form>
     </div>
   </div>
 </div>
-
-<!-- Form check/disable özelliği için basit JavaScript -->
 <script>
   function checkForm() {
     const nameCheck = document.getElementById("anon_name").checked;
     const contactCheck = document.getElementById("anon_contact").checked;
-    const institutionCheck =
-      document.getElementById("anon_institution").checked;
-
+    const institutionCheck = document.getElementById("anon_institution").checked;
     const submitBtn = document.getElementById("anonSubmit");
-
-    // En az bir checkbox seçiliyse buton aktif, aksi halde devre dışı
-    if (nameCheck || contactCheck || institutionCheck) {
-      submitBtn.disabled = false;
-    } else {
-      submitBtn.disabled = true;
-    }
+    submitBtn.disabled = !(nameCheck || contactCheck || institutionCheck);
   }
 </script>
 {% endblock %}

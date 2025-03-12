@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
+    <h3>Anahtar Kelimeler (Takip No: {{ submission.tracking_number }})</h3>
+    <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
+  </div>
+  <div class="card-body">
+    {% if keywords %}
+      <p>Çıkarılan anahtar kelimeler:</p>
+      <ul>
+        {% for kw in keywords %}
+          <li>{{ kw }}</li>
+        {% endfor %}
+      </ul>
+
+      {% if submission.status == "Anonimleştirildi" %}
+        <!-- Sadece anonimleştirildi ise Hakeme Ata ve Anonim PDF İndir -->
+        <a
+          href="{% url 'assign_reviewer' submission.tracking_number %}"
+          class="btn btn-warning mr-2"
+        >
+          Hakeme Ata
+        </a>
+        <a
+          href="{% url 'download_anonymized_pdf' submission.tracking_number %}"
+          class="btn btn-success"
+        >
+          Anonim PDF İndir
+        </a>
+      {% endif %}
+    {% else %}
+      <p>Belgeden anahtar kelime çıkarılamadı.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

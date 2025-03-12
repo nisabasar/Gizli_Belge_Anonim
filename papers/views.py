@@ -2,10 +2,14 @@ import os, hashlib, uuid
 from django.shortcuts import get_object_or_404, render, redirect
 from django.conf import settings
 from django.contrib import messages
+from django.http import FileResponse
 from .models import Submission, Log, Message, Domain, Reviewer
-from .forms import UploadForm, ReviseForm, StatusForm, ReviewForm, MessageForm
+from .forms import (
+    UploadForm, ReviseForm, StatusForm, ReviewForm,
+    MessageForm, ReplyForm, AnonymizeOptionsForm
+)
 from .nlp_utils import extract_keywords_from_pdf_advanced as extract_keywords_from_pdf_nlp
-from .anonymization import anonymize_pdf, merge_review_comments
+from .anonymization import anonymize_pdf, merge_review_comments, restore_original_fields
 
 def generate_tracking_number():
     return str(uuid.uuid4())[:8]
@@ -13,7 +17,10 @@ def generate_tracking_number():
 def hash_email(email):
     return hashlib.sha256(email.encode('utf-8')).hexdigest()
 
-# KULLANICI (Yazar) Süreci
+# ==========================
+# KULLANICI (Yazar) SÜRECİ
+# ==========================
+
 def home(request):
     return render(request, 'home.html')
 
@@ -32,8 +39,10 @@ def upload_paper(request):
             )
             submission.original_pdf = pdf_file
             submission.save()
+            # Log kaydı
+            Log.objects.create(submission=submission, action="Makale yüklendi")
+
             messages.success(request, f"Makaleniz yüklendi. Takip numaranız: {tracking}")
-            # Yönlendirme yerine direkt upload_success şablonunu render ediyoruz:
             return render(request, 'upload_success.html', {'tracking_number': tracking})
         else:
             messages.error(request, "Lütfen formdaki hataları düzeltin.")
@@ -54,12 +63,15 @@ def status_view(request):
                 if sub.email_hash == hashed:
                     submission_found = sub
                 else:
-                    messages.error(request, "Bilgiler hatalı.")
+                    messages.error(request, "E-posta adresi bu makaleyle eşleşmiyor.")
             except Submission.DoesNotExist:
                 messages.error(request, "Makale bulunamadı.")
     else:
         form = StatusForm()
-    return render(request, 'status.html', {'form': form, 'submission': submission_found})
+    return render(request, 'status.html', {
+        'form': form,
+        'submission': submission_found
+    })
 
 def send_message(request, tracking_number):
     try:
@@ -110,14 +122,19 @@ def revise_paper(request, tracking_number):
             sub.revised_pdf = pdf_file
             sub.status = "Revize"
             sub.save()
+            # Log kaydı
             Log.objects.create(submission=sub, action="Kullanıcı revize makale yükledi.")
+
             messages.success(request, "Revize edilmiş makale yüklendi.")
             return redirect('status')
     else:
         form = ReviseForm()
     return render(request, 'revise_paper.html', {'form': form, 'submission': sub})
 
-# YÖNETİCİ (Editör) Süreci
+# ==========================
+# YÖNETİCİ (Editör) SÜRECİ
+# ==========================
+
 def editor_dashboard(request):
     subs = Submission.objects.all().order_by('-timestamp')
     return render(request, 'admin_panel.html', {'submissions': subs})
@@ -129,7 +146,10 @@ def extract_keywords_view(request, tracking_number):
     
     if kws:
         sub.extracted_keywords = ", ".join(kws)
-        # Domain eşlemesi (örneğin, domain isimleri veya alt konuları ile eşleştirme)
+        # Log kaydı
+        Log.objects.create(submission=sub, action="Anahtar kelimeler çıkarıldı")
+
+        # Domain eşlemesi
         for d in Domain.objects.all():
             domain_name_lower = d.name.lower()
             subtopics_lower = [s.strip().lower() for s in d.subtopics.split(',')]
@@ -138,48 +158,50 @@ def extract_keywords_view(request, tracking_number):
                 if kw_lower in domain_name_lower or any(kw_lower in st for st in subtopics_lower):
                     sub.domains.add(d)
         sub.save()
-        Log.objects.create(submission=sub, action="Anahtar kelimeler çıkarıldı ve domain atandı.")
         return render(request, 'extracted_keywords.html', {'submission': sub, 'keywords': kws})
     else:
         messages.info(request, "Anahtar kelime bulunamadı.")
         return redirect('editor_dashboard')
     
 def anonymize_view(request, tracking_number):
-    try:
-        sub = Submission.objects.get(tracking_number=tracking_number)
-    except Submission.DoesNotExist:
-        messages.error(request, "Makale bulunamadı.")
-        return redirect('editor_dashboard')
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
     input_path = sub.revised_pdf.path if sub.revised_pdf else sub.original_pdf.path
     filename = os.path.basename(input_path)
     output_path = os.path.join(settings.MEDIA_ROOT, 'anonymized', f"anon_{filename}")
-    success = anonymize_pdf(input_path, output_path)
-    if success:
-        sub.anonymized_pdf.name = f"anonymized/anon_{filename}"
-        sub.status = "Anonimleştirildi"
-        sub.save()
-        Log.objects.create(submission=sub, action="Makale anonimleştirildi.")
-        messages.success(request, "Makale anonimleştirildi.")
+    if request.method == "POST":
+        form = AnonymizeOptionsForm(request.POST)
+        if form.is_valid():
+            options = form.cleaned_data
+            success = anonymize_pdf(input_path, output_path, options)
+            if success:
+                sub.anonymized_pdf.name = os.path.join('anonymized', f"anon_{filename}")
+                sub.status = "Anonimleştirildi"
+                sub.save()
+                # Log kaydı
+                Log.objects.create(submission=sub, action="Makale anonimleştirildi")
+
+                messages.success(request, "Makale anonimleştirildi.")
+                return redirect('editor_dashboard')
+            else:
+                messages.error(request, "Anonimleştirme sırasında hata oluştu.")
     else:
-        messages.error(request, "Anonimleştirme sırasında hata oluştu.")
-    return redirect('editor_dashboard')
+        form = AnonymizeOptionsForm()
+    return render(request, 'anonymize_options.html', {'form': form, 'submission': sub})
 
 def assign_reviewer(request, tracking_number):
-    try:
-        sub = Submission.objects.get(tracking_number=tracking_number)
-    except Submission.DoesNotExist:
-        messages.error(request, "Makale bulunamadı.")
-        return redirect('editor_dashboard')
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
     matching_reviewers = Reviewer.objects.filter(interests__in=sub.domains.all()).distinct()
     if request.method == 'POST':
         reviewer_id = request.POST.get('reviewer_id')
         if reviewer_id:
             try:
                 rev = Reviewer.objects.get(id=reviewer_id)
-                sub.reviewer_assigned = rev.email
+                sub.reviewer = rev
                 sub.status = "Hakeme Atandı"
                 sub.save()
+                # Log kaydı
                 Log.objects.create(submission=sub, action=f"Hakeme atandı: {rev.email}")
+
                 messages.success(request, f"{rev.name} adlı hakeme atandı.")
                 return redirect('editor_dashboard')
             except Reviewer.DoesNotExist:
@@ -190,33 +212,24 @@ def assign_reviewer(request, tracking_number):
     })
 
 def request_revision(request, tracking_number):
-    try:
-        sub = Submission.objects.get(tracking_number=tracking_number)
-    except Submission.DoesNotExist:
-        messages.error(request, "Makale bulunamadı.")
-        return redirect('editor_dashboard')
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
     if sub.status != "Değerlendirildi":
         messages.error(request, "Makale henüz hakem tarafından değerlendirilmemiş.")
         return redirect('editor_dashboard')
     sub.status = "Revize Gerekli"
     sub.save()
-    Log.objects.create(submission=sub, action="Editör revizyon istedi (Revize Gerekli).")
+    # Log kaydı
+    Log.objects.create(submission=sub, action="Editör revizyon istedi (Revize Gerekli)")
+
     messages.success(request, "Makale için revize talep edildi.")
     return redirect('editor_dashboard')
-from django.http import FileResponse
 
 def view_pdf(request, tracking_number):
-    try:
-        sub = Submission.objects.get(tracking_number=tracking_number)
-    except Submission.DoesNotExist:
-        messages.error(request, "Makale bulunamadı.")
-        return redirect('editor_dashboard')
-    # Revize edilmiş dosya varsa onu, yoksa orijinal dosyayı açar.
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
     pdf_path = sub.revised_pdf.path if sub.revised_pdf else sub.original_pdf.path
     return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
 
 def reply_to_message(request, message_id):
-    from .forms import ReplyForm  # Eğer ayrı dosyada tanımlıysa
     try:
         original_msg = Message.objects.get(id=message_id)
     except Message.DoesNotExist:
@@ -227,11 +240,10 @@ def reply_to_message(request, message_id):
         form = ReplyForm(request.POST)
         if form.is_valid():
             reply_content = form.cleaned_data['content']
-            # Yeni mesaj kaydı: Gönderen editör
             Message.objects.create(
                 submission=submission,
                 sender='editor',
-                sender_email='editor@example.com',  # Editörün e-posta adresini belirleyin
+                sender_email='editor@example.com',
                 content=reply_content
             )
             Log.objects.create(submission=submission, action="Editör mesaj cevabı gönderdi.")
@@ -245,11 +257,7 @@ def reply_to_message(request, message_id):
     })
 
 def finalize_view(request, tracking_number):
-    try:
-        sub = Submission.objects.get(tracking_number=tracking_number)
-    except Submission.DoesNotExist:
-        messages.error(request, "Makale bulunamadı.")
-        return redirect('editor_dashboard')
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
     if sub.status != "Değerlendirildi":
         messages.error(request, "Hakem değerlendirmesi bitmeden final oluşturulamaz.")
         return redirect('editor_dashboard')
@@ -261,10 +269,12 @@ def finalize_view(request, tracking_number):
     final_path = os.path.join(settings.MEDIA_ROOT, 'final', final_filename)
     success = merge_review_comments(anon_path, sub.review, final_path)
     if success:
-        sub.final_pdf.name = f"final/{final_filename}"
+        sub.final_pdf.name = os.path.join('final', final_filename)
         sub.status = "Final"
         sub.save()
-        Log.objects.create(submission=sub, action="Final PDF oluşturuldu (Yazar bilgileri geri yüklendi).")
+        # Log kaydı
+        Log.objects.create(submission=sub, action="Final PDF oluşturuldu")
+
         messages.success(request, "Final PDF oluşturuldu.")
     else:
         messages.error(request, "Final PDF oluşturulurken hata oluştu.")
@@ -278,78 +288,74 @@ def editor_messages(request):
     all_msgs = Message.objects.all().order_by('-timestamp')
     return render(request, 'editor_messages.html', {'all_msgs': all_msgs})
 
-# HAKEM (Değerlendirici) Süreci
+# ==========================
+# HAKEM (Değerlendirici) SÜRECİ
+# ==========================
+
 def reviewer_dashboard(request):
     subs = Submission.objects.filter(status__in=["Hakeme Atandı","Değerlendirildi"]).order_by('-timestamp')
     return render(request, 'reviewer_panel.html', {'submissions': subs})
 
 def review_view(request, tracking_number):
-    try:
-        sub = Submission.objects.get(tracking_number=tracking_number)
-    except Submission.DoesNotExist:
-        messages.error(request, "Makale bulunamadı.")
-        return redirect('reviewer_dashboard')
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
     if request.method == 'POST':
         form = ReviewForm(request.POST)
         if form.is_valid():
             sub.review = form.cleaned_data['review_text']
             sub.status = "Değerlendirildi"
             sub.save()
-            Log.objects.create(submission=sub, action="Hakem değerlendirme yaptı.")
+            # Log kaydı
+            Log.objects.create(submission=sub, action="Hakem değerlendirme yaptı")
+
             messages.success(request, "Değerlendirme kaydedildi.")
             return redirect('reviewer_dashboard')
     else:
         form = ReviewForm()
     return render(request, 'review.html', {'submission': sub, 'form': form})
 
-# papers/views.py
-from django.shortcuts import render, redirect, get_object_or_404
-from .models import Submission
-from .forms import AnonymizeOptionsForm
-from .anonymization import anonymize_pdf, merge_review_comments  # merge_review_comments artık tanımlı
+# ==========================
+# PDF İNDİRME / TEMİZLEME VB.
+# ==========================
 
-def anonymize_view(request, tracking_number):
-    submission = get_object_or_404(Submission, tracking_number=tracking_number)
-    
-    # Orijinal PDF yolunu alıyoruz
-    input_path = submission.original_pdf.path
-    # Anonimleştirilmiş PDF için bir output path belirleyin (örneğin, media/anonymized klasörü içinde)
-    output_path = submission.anonymized_pdf.path if submission.anonymized_pdf else input_path.replace("uploads", "anonymized")
-    
-    if request.method == "POST":
-        form = AnonymizeOptionsForm(request.POST)
-        if form.is_valid():
-            options = form.cleaned_data
-            # Anonymize işlemini çağırıyoruz
-            success = anonymize_pdf(input_path, output_path, options)
-            if success:
-                submission.status = "Anonimleştirildi"
-                submission.anonymized_pdf.name = output_path.split("media/")[-1]
-                submission.save()
-                return redirect("editor_dashboard")  # Yönetici paneline yönlendirme
-    else:
-        form = AnonymizeOptionsForm()
-    
-    return render(request, "anonymize_options.html", {"form": form, "submission": submission})
-
-from django.shortcuts import render, redirect, get_object_or_404
-from .models import Submission
-
-def anonymize_options_view(request, tracking_number):
-    submission = get_object_or_404(Submission, tracking_number=tracking_number)
-    
-    if request.method == 'POST':
-        # Checkbox’ların durumu
-        anon_name = 'anon_name' in request.POST
-        anon_contact = 'anon_contact' in request.POST
-        anon_institution = 'anon_institution' in request.POST
-        
-        # Seçilenlere göre anonimleştirme yapın
-        # Örneğin, anonymize_pdf(submission, anon_name, anon_contact, anon_institution)
-        
+def download_anonymized_pdf(request, tracking_number):
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
+    if not sub.anonymized_pdf:
+        messages.error(request, "Anonimleştirilmiş PDF bulunamadı.")
         return redirect('editor_dashboard')
-    
-    # GET isteğinde formu göster
-    return render(request, 'anonymize_options.html', {
-        'submission': submission,
-    })
+    pdf_path = sub.anonymized_pdf.path
+    try:
+        response = FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
+        # Zorla indirme için Content-Disposition
+        response['Content-Disposition'] = f'attachment; filename="{sub.tracking_number}_anon.pdf"'
+        return response
+    except Exception as e:
+        messages.error(request, f"PDF indirilemedi: {e}")
+        return redirect('editor_dashboard')
+
+def restore_original(request, tracking_number):
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
+    success = restore_original_fields(sub.anonymized_pdf.path, sub.original_pdf.path)
+    if success:
+        messages.success(request, "PDF, orijinal bilgiler geri yüklendi ve düzenlendi.")
+        # Log kaydı
+        Log.objects.create(submission=sub, action="Orijinal bilgiler geri yüklendi")
+    else:
+        messages.error(request, "PDF düzenlenirken hata oluştu.")
+    return redirect('editor_dashboard')
+
+def clear_all_submissions(request):
+    # Tüm Submission kayıtlarını ve ilgili dosyaları silebilirsiniz
+    for sub in Submission.objects.all():
+        if sub.original_pdf:
+            sub.original_pdf.delete()
+        if sub.revised_pdf:
+            sub.revised_pdf.delete()
+        if sub.anonymized_pdf:
+            sub.anonymized_pdf.delete()
+        if sub.final_pdf:
+            sub.final_pdf.delete()
+    Submission.objects.all().delete()
+    Log.objects.all().delete()
+    Message.objects.all().delete()
+    messages.success(request, "Tüm makaleler, loglar ve mesajlar temizlendi.")
+    return redirect('editor_dashboard')

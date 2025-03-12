@@ -1,12 +1,8 @@
 from django.contrib import admin
-from .models import Submission, Log
+from .models import Domain, Reviewer, Submission, Log, Message
 
-@admin.register(Submission)
-class SubmissionAdmin(admin.ModelAdmin):
-    list_display = ('tracking_number', 'status', 'timestamp')
-    search_fields = ('tracking_number',)
-
-@admin.register(Log)
-class LogAdmin(admin.ModelAdmin):
-    list_display = ('submission', 'action', 'timestamp')
-    search_fields = ('submission__tracking_number', 'action')
+admin.site.register(Domain)
+admin.site.register(Reviewer)
+admin.site.register(Submission)
+admin.site.register(Log)
+admin.site.register(Message)

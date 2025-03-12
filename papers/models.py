@@ -14,7 +14,7 @@ def decrypt_filename(enc_filename: str) -> str:
 
 class Domain(models.Model):
     name = models.CharField(max_length=150)
-    subtopics = models.TextField(default="Genel")  # Düzeltildi: TextField
+    subtopics = models.TextField(default="Genel")
 
     def __str__(self):
         return self.name
@@ -49,7 +49,7 @@ class Submission(models.Model):
     domains = models.ManyToManyField(Domain, blank=True, related_name='submissions')
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Gönderildi')
     review = models.TextField(null=True, blank=True)
-    reviewer_assigned = models.CharField(max_length=100, null=True, blank=True)
+    reviewer = models.ForeignKey(Reviewer, null=True, blank=True, on_delete=models.SET_NULL)
     timestamp = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
@@ -75,7 +75,7 @@ class Log(models.Model):
 
 class Message(models.Model):
     submission = models.ForeignKey(Submission, on_delete=models.CASCADE, related_name='messages')
-    sender = models.CharField(max_length=50)  # 'user' veya 'editor'
+    sender = models.CharField(max_length=50)
     sender_email = models.CharField(max_length=100, null=True, blank=True)
     content = models.TextField()
     timestamp = models.DateTimeField(default=timezone.now)

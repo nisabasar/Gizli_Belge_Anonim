@@ -1,4 +1,5 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
+{% block content %}
 <div class="card">
   <div class="card-header bg-dark text-white d-flex justify-content-between">
     <h3>Makale Mesajları (Takip No: {{ submission.tracking_number }})</h3>
@@ -9,12 +10,9 @@
     <ul class="list-group">
       {% for msg in msgs %}
       <li class="list-group-item">
-        <strong>Gönderen:</strong> {{ msg.sender }}{% if msg.sender_email %} ({{
-        msg.sender_email }}){% endif %}<br />
+        <strong>Gönderen:</strong> {{ msg.sender }}{% if msg.sender_email %} ({{ msg.sender_email }}){% endif %}<br />
         {{ msg.content }}
-        <span class="badge badge-light float-right"
-          >{{ msg.timestamp|date:"d M Y, g:i A" }}</span
-        >
+        <span class="badge badge-light float-right">{{ msg.timestamp|date:"d M Y, g:i A" }}</span>
       </li>
       {% endfor %}
     </ul>

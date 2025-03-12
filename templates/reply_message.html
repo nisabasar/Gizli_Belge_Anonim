@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
+    <h3>Mesaja Cevap Ver (Mesaj ID: {{ original_msg.id }})</h3>
+    <a href="{% url 'editor_messages' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
+  </div>
+  <div class="card-body">
+    <p><strong>Orijinal Mesaj:</strong> {{ original_msg.content }}</p>
+    <form method="POST">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn btn-dark">Cevabı Gönder</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

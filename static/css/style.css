@@ -30,19 +30,15 @@ body {
 .footer span {
   font-size: 0.9rem;
 }
-/* Örnek CSS */
-.navbar-brand {
-  font-weight: bold;
-}
 
 .nav-link {
   margin-right: 0.5rem;
 }
 
-/* Responsive davranış için ek media query'ler eklenebilir */
 @media (max-width: 576px) {
   .nav-link {
     text-align: center;
     padding: 0.5rem 0;
   }
 }
+

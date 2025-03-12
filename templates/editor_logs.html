@@ -1,10 +1,9 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
+{% block content %}
 <div class="card">
   <div class="card-header bg-dark text-white d-flex justify-content-between">
     <h3>Log Kayıtları</h3>
-    <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm"
-      >GERİ DÖN</a
-    >
+    <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
   </div>
   <div class="card-body">
     {% if logs %}

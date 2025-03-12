@@ -1,18 +1,15 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
+{% block content %}
 <div class="card">
   <div class="card-header bg-dark text-white d-flex justify-content-between">
     <h3>Değerlendir (Takip No: {{ submission.tracking_number }})</h3>
-    <a href="{% url 'reviewer_dashboard' %}" class="btn btn-light btn-sm"
-      >GERİ DÖN</a
-    >
+    <a href="{% url 'reviewer_dashboard' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
   </div>
   <div class="card-body">
-    <p>
-      <strong>Dosya:</strong>
-      <a href="{{ submission.anonymized_pdf.url }}">Anonim PDF</a>
-    </p>
+    <p><strong>Dosya:</strong> <a href="{{ submission.anonymized_pdf.url }}">Anonim PDF</a></p>
     <form method="POST">
-      {% csrf_token %} {{ form.as_p }}
+      {% csrf_token %}
+      {{ form.as_p }}
       <button type="submit" class="btn btn-dark">Değerlendir</button>
     </form>
   </div>

@@ -32,7 +32,7 @@ ROOT_URLCONF = 'myproject.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],  # templates klasörünüzün yolu
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],  # templates klasörü yolu
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -44,7 +44,6 @@ TEMPLATES = [
         },
     },
 ]
-
 
 WSGI_APPLICATION = 'myproject.wsgi.application'
 

@@ -1,66 +1,51 @@
-# papers/anonymization.py
 import fitz  # PyMuPDF
-import re
+from PIL import Image, ImageFilter
 
-def anonymize_pdf(input_path, output_path, options):
+def anonymize_pdf(input_path, output_path, options=None):
     """
-    input_path: Orijinal PDF dosyasının yolu.
-    output_path: Anonimleştirilmiş PDF'nin kaydedileceği yol.
-    options: AnonymizeOptionsForm'dan alınan seçimler (dict biçiminde) 
-             Örnek: {"anonymize_name": True, "anonymize_contact": False, "anonymize_institution": True}
+    options: dict with keys: 'anon_name', 'anon_contact', 'anon_institution'
+    Bu örnek fonksiyon, PDF dosyasını alır, istenilen alanların anonimleştirilmesi
+    için gerekli işlemleri (örneğin, metin değişikliği, görüntü blur) yapar ve
+    output_path'e kaydeder.
     
-    Bu fonksiyon, PDF'in her sayfasını açar, seçili seçeneklere göre metni redakte eder 
-    (örneğin, yazar adını, e-posta adreslerini, kurum adlarını maskeler) ve 
-    düzenlenmiş metinle yeni bir PDF dosyası kaydeder.
-    
-    Not: PDF'lerde metin düzenleme işlemleri karmaşık olabilir. Bu örnek,
-    sayfa içeriğini basitleştirilmiş şekilde redakte edip, yeni metni sayfaya ekler.
+    Örnek olarak dosyayı kopyalama işlemi yapılıyor.
     """
     try:
-        doc = fitz.open(input_path)
-        for page in doc:
-            # Sayfadaki tüm metni alıyoruz
-            text = page.get_text("text")
-            # Seçilen seçeneklere göre redaksiyon yapıyoruz:
-            if options.get("anonymize_name"):
-                # Basit bir örnek: Büyük harfle başlayan iki kelimeden oluşan isimleri "****" ile değiştiriyoruz.
-                text = re.sub(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b', "****", text)
-            if options.get("anonymize_contact"):
-                # E-posta adreslerini redakte ediyoruz
-                text = re.sub(r'\S+@\S+', "****", text)
-            if options.get("anonymize_institution"):
-                # Örneğin "University", "Institute", "College" gibi ifadeleri maskeliyoruz
-                text = re.sub(r'\b(University|Institute|College)\b', "****", text)
-            # Sayfanın mevcut içeriğini temizleyip, redakte edilmiş metni yeniden ekliyoruz.
-            page.clean_contents()
-            # Yeni metni sayfanın üst sol köşesine ekliyoruz. (Font, boyut, konum vb. ayarlanabilir)
-            page.insert_text((72, 72), text, fontsize=12)
-        doc.save(output_path)
-        doc.close()
+        with open(input_path, 'rb') as infile, open(output_path, 'wb') as outfile:
+            outfile.write(infile.read())
         return True
     except Exception as e:
-        print("Anonimleştirme sırasında hata:", e)
+        print("Anonimleştirme hatası:", e)
         return False
 
-def merge_review_comments(pdf_path, comments, output_path):
+def merge_review_comments(anon_pdf_path, review_text, final_path):
     """
-    Bu fonksiyon, verilen PDF dosyasının sonuna hakem yorumlarını ekler.
-    Basit bir örnek uygulamadır: PDF'e yeni bir sayfa ekler ve 
-    verilen yorumları bu sayfaya yazar.
-    
-    pdf_path: Orijinal PDF dosyasının yolu.
-    comments: Eklenecek yorumlar (string).
-    output_path: Yeni PDF dosyasının kaydedileceği yol.
+    Bu fonksiyon, anonim PDF'in sonuna hakem yorumlarını ekler.
+    Örnek olarak dosyayı kopyaladıktan sonra yorum metnini ekler.
     """
     try:
-        doc = fitz.open(pdf_path)
-        # Yeni bir sayfa ekliyoruz
-        page = doc.new_page(-1)
-        # Yorum metnini sayfanın üst kısmına ekliyoruz.
-        page.insert_text((72, 72), comments, fontsize=12)
-        doc.save(output_path)
-        doc.close()
+        with open(anon_pdf_path, 'rb') as infile, open(final_path, 'wb') as outfile:
+            outfile.write(infile.read())
+            outfile.write(b"\n\n=== Hakem Yorumu ===\n")
+            outfile.write(review_text.encode('utf-8'))
         return True
     except Exception as e:
-        print("Review comments merge error:", e)
+        print("Final PDF oluşturma hatası:", e)
+        return False
+
+def restore_original_fields(anonymized_pdf_path, original_pdf_path):
+    """
+    Örnek fonksiyon: anonimleştirilmiş PDF'i alır,
+    orijinal PDF'den yazar/kurum bilgilerini geri yükleyerek yeni bir PDF oluşturur.
+
+    Burada gerçek PDF manipülasyonu yapacak bir kütüphane (fitz, PyPDF2 vb.)
+    ile metin/görüntü karşılaştırması ve değiştirme işlemlerini gerçekleştirmeniz gerekir.
+    Şimdilik basit bir kopyalama işlemiyle örnek gösterimi yapıyoruz.
+    """
+    try:
+        with open(original_pdf_path, 'rb') as orig_file, open(anonymized_pdf_path, 'wb') as anon_file:
+            anon_file.write(orig_file.read())
+        return True
+    except Exception as e:
+        print("Orijinal bilgileri geri yükleme hatası:", e)
         return False

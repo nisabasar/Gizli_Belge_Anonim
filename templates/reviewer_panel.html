@@ -1,10 +1,9 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
+{% block content %}
 <div class="card">
   <div class="card-header bg-dark text-white d-flex justify-content-between">
     <h3>Hakem Paneli</h3>
-    <a href="{% url 'reviewer_dashboard' %}" class="btn btn-light btn-sm"
-      >GERİ DÖN</a
-    >
+    <a href="{% url 'reviewer_dashboard' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
   </div>
   <div class="card-body">
     <div class="table-responsive">
@@ -23,21 +22,13 @@
             <td>{{ sub.tracking_number }}</td>
             <td>
               {% if sub.anonymized_pdf %}
-              <a
-                href="{{ sub.anonymized_pdf.url }}"
-                class="btn btn-secondary btn-sm"
-                >Anonim PDF</a
-              >
+              <a href="{{ sub.anonymized_pdf.url }}" class="btn btn-secondary btn-sm">Anonim PDF</a>
+              {% endif %}
             </td>
             <td>{{ sub.status }}</td>
             <td>
-              {% if sub.status == "Hakeme Atandı" or sub.status ==
-              "Değerlendirildi" %}
-              <a
-                href="{% url 'review_view' sub.tracking_number %}"
-                class="btn btn-dark btn-sm"
-                >Değerlendir</a
-              >
+              {% if sub.status == "Hakeme Atandı" or sub.status == "Değerlendirildi" %}
+              <a href="{% url 'review_view' sub.tracking_number %}" class="btn btn-dark btn-sm">Değerlendir</a>
               {% endif %}
             </td>
           </tr>

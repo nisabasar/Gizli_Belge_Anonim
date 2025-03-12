@@ -1,4 +1,3 @@
-# papers/urls.py
 from django.urls import path
 from . import views
 
@@ -19,8 +18,14 @@ urlpatterns = [
     path('makalesistemi/yonetici/request_revision/<str:tracking_number>/', views.request_revision, name='request_revision'),
     path('makalesistemi/yonetici/finalize/<str:tracking_number>/', views.finalize_view, name='finalize_view'),
     path('makalesistemi/degerlendirici/', views.reviewer_dashboard, name='reviewer_dashboard'),
-    path("yonetici/anonymize/<str:tracking_number>/", views.anonymize_view, name="anonymize_view"),
     path('makalesistemi/degerlendirici/review/<str:tracking_number>/', views.review_view, name='review_view'),
-    # Yeni reply URL'si:
     path('makalesistemi/yonetici/reply/<int:message_id>/', views.reply_to_message, name='reply_to_message'),
+    path('makalesistemi/yonetici/restore/<str:tracking_number>/', views.restore_original, name='restore_original'),
+    path('makalesistemi/yonetici/download_anon/<str:tracking_number>/', views.download_anonymized_pdf, name='download_anonymized_pdf'),
+    path('makalesistemi/yonetici/clear_all/', views.clear_all_submissions, name='clear_all_submissions'),
+    path('makalesistemi/yonetici/download_anon/<str:tracking_number>/',
+     views.download_anonymized_pdf,
+     name='download_anonymized_pdf'),
+
+
 ]

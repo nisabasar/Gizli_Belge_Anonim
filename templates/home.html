@@ -1,19 +1,10 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
+{% block content %}
 <div class="jumbotron text-center">
   <h1 class="display-4">Güvenli Belge Anonimleştirme Sistemi</h1>
-  <p class="lead">
-    Akademik makalelerinizi güvenle anonimleştirin ve değerlendirme sürecine
-    sunun.
-  </p>
+  <p class="lead">Akademik makalelerinizi güvenle anonimleştirin ve değerlendirme sürecine sunun.</p>
   <hr class="my-4" />
-  <a
-    class="btn btn-dark btn-lg mr-2"
-    href="{% url 'upload_paper' %}"
-    role="button"
-    >Makale Yükleme</a
-  >
-  <a class="btn btn-dark btn-lg" href="{% url 'status' %}" role="button"
-    >Makale Durum Sorgulama</a
-  >
+  <a class="btn btn-dark btn-lg mr-2" href="{% url 'upload_paper' %}" role="button">Makale Yükleme</a>
+  <a class="btn btn-dark btn-lg" href="{% url 'status' %}" role="button">Makale Durum Sorgulama</a>
 </div>
 {% endblock %}
