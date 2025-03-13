@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white">
+    <h3>Hakem Listesi</h3>
+  </div>
+  <div class="card-body">
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Hakem Adı</th>
+          <th>E-posta</th>
+          <th>Panel</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rev in reviewers %}
+        <tr>
+          <td>{{ rev.name }}</td>
+          <td>{{ rev.email }}</td>
+          <td>
+            <a href="{% url 'reviewer_detail' rev.id %}" class="btn btn-primary btn-sm">
+              Panel
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3">Kayıtlı hakem bulunamadı.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

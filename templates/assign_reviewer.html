@@ -6,26 +6,26 @@
     <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
   </div>
   <div class="card-body">
-    <p><strong>Makalenin Alanları:</strong>
-      {% for d in submission.domains.all %}
-      <span class="badge badge-info">{{ d.name }}</span>
+    <p><strong>Makalenin Alt Başlıkları:</strong>
+      {% for st in submission.subtopics.all %}
+        <span class="badge badge-info">{{ st }}</span>
       {% endfor %}
     </p>
     <hr />
-    <h5>Uyumlu Hakemler:</h5>
+    <h5>Uygun Hakemler:</h5>
     {% if matching_reviewers %}
-    <ul>
-      {% for rev in matching_reviewers %}
-      <li>
-        {{ rev.name }} ({{ rev.email }}) – İlgi Alanları: 
-        {% for domain in rev.interests.all %}
-        <span class="badge badge-secondary">{{ domain.name }}</span>
+      <ul>
+        {% for rev in matching_reviewers %}
+          <li>
+            {{ rev.name }} ({{ rev.email }}) – İlgi Alanları: 
+            {% for st in rev.interests.all %}
+              <span class="badge badge-secondary">{{ st }}</span>
+            {% endfor %}
+          </li>
         {% endfor %}
-      </li>
-      {% endfor %}
-    </ul>
+      </ul>
     {% else %}
-    <p>Bu alanlara uygun hakem bulunamadı.</p>
+      <p>Bu alt başlıklara uygun hakem bulunamadı.</p>
     {% endif %}
     <hr />
     <form method="POST">
@@ -35,7 +35,7 @@
         <select name="reviewer_id" class="form-control">
           <option value="">-- Seçin --</option>
           {% for rev in matching_reviewers %}
-          <option value="{{ rev.id }}">{{ rev.name }} ({{ rev.email }})</option>
+            <option value="{{ rev.id }}">{{ rev.name }} ({{ rev.email }})</option>
           {% endfor %}
         </select>
       </div>

@@ -167,23 +167,47 @@ def anonymize_view(request, tracking_number):
         form = AnonymizeOptionsForm()
     return render(request, 'anonymize_options.html', {'form': form, 'submission': sub})
 
+# Örnek: assign_reviewer fonksiyonu
 def assign_reviewer(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
-    matching_reviewers = Reviewer.objects.filter(interests__in=sub.domains.all()).distinct()
+    # Makalenin alt başlıkları:
+    sub_subtopics = sub.subtopics.all()  # "Derin öğrenme", "Doğal dil işleme", vs.
+
+    # Bu alt başlıklarla ilgilenen hakemler:
+    matching_reviewers = Reviewer.objects.filter(interests__in=sub_subtopics).distinct()
+
     if request.method == 'POST':
         reviewer_id = request.POST.get('reviewer_id')
         if reviewer_id:
-            try:
-                rev = Reviewer.objects.get(id=reviewer_id)
-                sub.reviewer = rev
-                sub.status = "Hakeme Atandı"
-                sub.save()
-                Log.objects.create(submission=sub, action=f"Hakeme atandı: {rev.email}")
-                messages.success(request, f"{rev.name} adlı hakeme atandı.")
-                return redirect('editor_dashboard')
-            except Reviewer.DoesNotExist:
-                messages.error(request, "Seçilen hakem bulunamadı.")
-    return render(request, 'assign_reviewer.html', {'submission': sub, 'matching_reviewers': matching_reviewers})
+            rev = Reviewer.objects.get(id=reviewer_id)
+            sub.reviewer = rev
+            sub.status = "Hakeme Atandı"
+            sub.save()
+            messages.success(request, f"{rev.name} adlı hakeme atandı.")
+            return redirect('editor_dashboard')
+
+    return render(request, 'assign_reviewer.html', {
+        'submission': sub,
+        'matching_reviewers': matching_reviewers
+    })
+
+def reviewer_list(request):
+    # Tüm hakemleri çek
+    reviewers = Reviewer.objects.all()
+    return render(request, 'reviewer_list.html', {
+        'reviewers': reviewers
+    })
+
+def reviewer_detail(request, reviewer_id):
+    # Seçilen hakemi bul
+    reviewer = get_object_or_404(Reviewer, pk=reviewer_id)
+    # O hakeme atanmış makaleler
+    submissions = Submission.objects.filter(reviewer=reviewer).order_by('-timestamp')
+    return render(request, 'reviewer_detail.html', {
+        'reviewer': reviewer,
+        'submissions': submissions
+    })
+
 
 def request_revision(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
@@ -255,6 +279,27 @@ def editor_logs(request):
 def editor_messages(request):
     all_msgs = Message.objects.all().order_by('-timestamp')
     return render(request, 'editor_messages.html', {'all_msgs': all_msgs})
+
+
+def reviewer_panel(request):
+    reviewers = Reviewer.objects.all()  # Tüm hakem kayıtları
+    chosen_reviewer = None
+    submissions = None
+
+    if request.method == 'POST':
+        reviewer_id = request.POST.get('reviewer_id')
+        if reviewer_id:
+            chosen_reviewer = Reviewer.objects.get(id=reviewer_id)
+            # Örneğin, makaleleri getirmek:
+            # submissions = Submission.objects.filter(reviewer=chosen_reviewer)
+
+    return render(request, 'reviewer_panel.html', {
+        'reviewers': reviewers,
+        'chosen_reviewer': chosen_reviewer,
+        'submissions': submissions
+    })
+
+
 
 # HAKEM (Değerlendirici) Süreci
 def reviewer_dashboard(request):

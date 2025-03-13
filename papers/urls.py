@@ -21,10 +21,11 @@ urlpatterns = [
     path('makalesistemi/yonetici/download_anon/<str:tracking_number>/', views.download_anonymized_pdf, name='download_anonymized_pdf'),
     path('makalesistemi/yonetici/restore/<str:tracking_number>/', views.restore_original, name='restore_original'),
     path('makalesistemi/yonetici/clear_all/', views.clear_all_submissions, name='clear_all_submissions'),
-    path('makalesistemi/degerlendirici/', views.reviewer_dashboard, name='reviewer_dashboard'),
     path('makalesistemi/degerlendirici/review/<str:tracking_number>/', views.review_view, name='review_view'),
     path('makalesistemi/yonetici/view_restored/<str:tracking_number>/', views.view_restored_pdf, name='view_restored_pdf'),
     path('makalesistemi/yonetici/view_pdf/<str:tracking_number>/', views.view_pdf, name='view_pdf'),
     path('makalesistemi/yonetici/view_restored/<str:tracking_number>/', views.view_restored_pdf, name='view_restored_pdf'),
+    path('makalesistemi/degerlendirici/', views.reviewer_panel, name='reviewer_panel'),
+    path('makalesistemi/degerlendirici/dashboard/', views.reviewer_dashboard, name='reviewer_dashboard'),
 
 ]

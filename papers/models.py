@@ -13,18 +13,32 @@ def decrypt_filename(enc_filename: str) -> str:
     f = Fernet(FERNET_KEY)
     return f.decrypt(enc_filename.encode()).decode()
 
+
 class Domain(models.Model):
     name = models.CharField(max_length=150)
-    subtopics = models.TextField(default="Genel")
     def __str__(self):
         return self.name
 
+class Subtopic(models.Model):
+    """
+    Her Subtopic bir Domain'e ait.
+    Örnek: Domain='Yapay Zeka ve Makine Öğrenimi', Subtopic='Derin öğrenme'
+    """
+    domain = models.ForeignKey(Domain, on_delete=models.CASCADE, related_name='subtopics')
+    name = models.CharField(max_length=150)
+
+    def __str__(self):
+        return f"{self.domain.name}: {self.name}"
+    
 class Reviewer(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    interests = models.ManyToManyField(Domain, related_name='reviewers')
+    # Hakem, birden fazla alt başlığa (Subtopic) ilgi duyabilir:
+    interests = models.ManyToManyField(Subtopic, related_name='reviewers', blank=True)
+
     def __str__(self):
         return f"{self.name} - {self.email}"
+
 
 STATUS_CHOICES = (
     ("Gönderildi", "Gönderildi"),
@@ -45,12 +59,12 @@ class Submission(models.Model):
     anonymized_pdf = models.FileField(upload_to='anonymized/', null=True, blank=True)
     final_pdf = models.FileField(upload_to='final/', null=True, blank=True)
     extracted_keywords = models.TextField(blank=True, null=True)
-    domains = models.ManyToManyField(Domain, blank=True, related_name='submissions')
+    # Makale, ilgili alt başlıkları (Subtopic) tutar.
+    subtopics = models.ManyToManyField(Subtopic, blank=True, related_name='submissions')
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Gönderildi')
     review = models.TextField(null=True, blank=True)
     reviewer = models.ForeignKey(Reviewer, null=True, blank=True, on_delete=models.SET_NULL)
     timestamp = models.DateTimeField(default=timezone.now)
-    # Anonimleştirilmiş hassas alanların (ör. koordinat, kategori, orijinal metin) bilgilerini saklar.
     anonymized_data = models.TextField(null=True, blank=True)
     restored = models.BooleanField(default=False)
     def __str__(self):
@@ -63,6 +77,7 @@ class Submission(models.Model):
         if self.encrypted_filename:
             return decrypt_filename(self.encrypted_filename)
         return "N/A"
+
 
 class Log(models.Model):
     submission = models.ForeignKey(Submission, on_delete=models.CASCADE)
