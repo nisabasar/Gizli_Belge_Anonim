@@ -1,6 +1,7 @@
 import os
 import hashlib
 import uuid
+import json
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.conf import settings
@@ -15,7 +16,6 @@ from .forms import (
 from .anonymization import anonymize_pdf, merge_review_comments, restore_original_fields
 from .nlp_utils import extract_keywords_from_pdf_advanced as extract_keywords_from_pdf_nlp
 
-# Yardımcı Fonksiyonlar
 def generate_tracking_number():
     return str(uuid.uuid4())[:8]
 
@@ -152,10 +152,11 @@ def anonymize_view(request, tracking_number):
                 'anonymize_contact': form.cleaned_data['anonymize_contact'],
                 'anonymize_institution': form.cleaned_data['anonymize_institution']
             }
-            success = anonymize_pdf(input_path, output_path, options)
-            if success:
+            regions = anonymize_pdf(input_path, output_path, options)
+            if regions:
                 sub.anonymized_pdf.name = os.path.join('anonymized', f"anon_{filename}")
                 sub.status = "Anonimleştirildi"
+                sub.anonymized_data = json.dumps(regions)
                 sub.save()
                 Log.objects.create(submission=sub, action="Makale anonimleştirildi")
                 messages.success(request, "Makale anonimleştirildi.")
@@ -197,7 +198,8 @@ def request_revision(request, tracking_number):
 
 def view_pdf(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
-    pdf_path = sub.revised_pdf.path if sub.revised_pdf else sub.original_pdf.path
+    # Restore edilmiş belgeyi görmek için, eğer anonymized_pdf mevcutsa onu gösterelim.
+    pdf_path = sub.anonymized_pdf.path if sub.anonymized_pdf else sub.original_pdf.path
     return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
 
 def reply_to_message(request, message_id):
@@ -274,7 +276,69 @@ def review_view(request, tracking_number):
         form = ReviewForm()
     return render(request, 'review.html', {'submission': sub, 'form': form})
 
-# PDF İNDİRME / ORİJİNAL BİLGİLERİ GERİ YÜKLEME / TEMİZLEME
+def restore_original(request, tracking_number):
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
+    if request.method == 'POST':
+        form = AnonymizeOptionsForm(request.POST)
+        if form.is_valid():
+            selected = []
+            if form.cleaned_data.get('anonymize_name'):
+                selected.append("name")
+            if form.cleaned_data.get('anonymize_contact'):
+                selected.append("contact")
+            if form.cleaned_data.get('anonymize_institution'):
+                selected.append("institution")
+
+            if not selected:
+                messages.error(request, "Hiçbir alan seçilmedi!")
+                return redirect('editor_dashboard')
+
+            if not sub.anonymized_data:
+                messages.error(request, "Anonimleştirme bilgileri bulunamadı.")
+                return redirect('editor_dashboard')
+
+            import json
+            regions = json.loads(sub.anonymized_data)
+
+            success = restore_original_fields(
+                anon_pdf_path=sub.anonymized_pdf.path,
+                original_pdf_path=sub.original_pdf.path,
+                categories_to_restore=selected,
+                regions=regions
+            )
+            if success:
+                sub.restored = True  # restore işleminin yapıldığını kaydet
+                sub.save()
+                messages.success(request, "Seçili alanlar orijinal hale getirildi.")
+                Log.objects.create(submission=sub, action="Orijinal bilgiler geri yüklendi")
+                # Restore sonrası admin paneline dönelim
+                return redirect('editor_dashboard')
+            else:
+                messages.error(request, "Restore işlemi sırasında hata oluştu.")
+                return redirect('editor_dashboard')
+    else:
+        form = AnonymizeOptionsForm()
+    return render(request, 'restore_options.html', {'form': form, 'submission': sub})
+
+
+def view_pdf(request, tracking_number):
+    """Orijinal (veya revised) PDF gösterir."""
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
+    # Mesela orijinal_pdf'yi açalım:
+    pdf_path = sub.original_pdf.path
+    return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
+
+def view_restored_pdf(request, tracking_number):
+    """Restore işlemi tamamlandıktan sonra, blur kaldırılmış anonim PDF gösterir."""
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
+    if not sub.restored:
+        messages.error(request, "Restore işlemi yapılmamış veya başarısız.")
+        return redirect('editor_dashboard')
+    # Restore edilmiş anonim PDF
+    pdf_path = sub.anonymized_pdf.path
+    return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
+
+
 def download_anonymized_pdf(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
     if not sub.anonymized_pdf:
@@ -288,16 +352,6 @@ def download_anonymized_pdf(request, tracking_number):
     except Exception as e:
         messages.error(request, f"PDF indirilemedi: {e}")
         return redirect('editor_dashboard')
-
-def restore_original(request, tracking_number):
-    sub = get_object_or_404(Submission, tracking_number=tracking_number)
-    success = restore_original_fields(sub.anonymized_pdf.path, sub.original_pdf.path)
-    if success:
-        messages.success(request, "PDF, orijinal bilgiler geri yüklendi ve düzenlendi.")
-        Log.objects.create(submission=sub, action="Orijinal bilgiler geri yüklendi")
-    else:
-        messages.error(request, "PDF düzenlenirken hata oluştu.")
-    return redirect('editor_dashboard')
 
 def clear_all_submissions(request):
     for sub in Submission.objects.all():

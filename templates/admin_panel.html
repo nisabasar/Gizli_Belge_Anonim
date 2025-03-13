@@ -1,33 +1,16 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="card">
-  <!-- KART BAŞLIĞI -->
-  <div class="card-header bg-dark text-white">
-    <!-- d-flex ile ana konteyner, justify-content-between ile sol-sağ yayılıyor -->
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
     <div class="d-flex justify-content-between align-items-center">
-      <!-- Başlık (Solda) -->
-      <h3 class="mb-0">
-        <i class="fas fa-tools"></i> Yönetici Paneli
-      </h3>
-
-      <!-- Butonlar (Sağda) -->
-      <!-- flex-nowrap: Butonlar tek satırda kalır, alt satıra düşmez -->
-      <!-- overflow-x: auto; -> Ekran daralınca yatay kaydırma devreye girer -->
+      <h3 class="mb-0"><i class="fas fa-tools"></i> Yönetici Paneli</h3>
       <div class="d-flex flex-nowrap" style="gap: 0.5rem; overflow-x: auto;">
-        <a href="{% url 'editor_logs' %}" class="btn btn-info btn-sm">
-          Log Kayıtları
-        </a>
-        <a href="{% url 'editor_messages' %}" class="btn btn-warning btn-sm">
-          Mesajlar
-        </a>
-        <a href="{% url 'clear_all_submissions' %}" class="btn btn-danger btn-sm">
-          Tüm Makaleleri Temizle
-        </a>
+        <a href="{% url 'editor_logs' %}" class="btn btn-info btn-sm">Log Kayıtları</a>
+        <a href="{% url 'editor_messages' %}" class="btn btn-warning btn-sm">Mesajlar</a>
+        <a href="{% url 'clear_all_submissions' %}" class="btn btn-danger btn-sm">Tüm Makaleleri Temizle</a>
       </div>
     </div>
   </div>
-
-  <!-- KART GÖVDESİ -->
   <div class="card-body">
     <div class="table-responsive">
       <table class="table table-hover">
@@ -41,82 +24,55 @@
         </thead>
         <tbody>
           {% for sub in submissions %}
-          <tr>
-            <td>{{ sub.tracking_number }}</td>
-            <td>
-              <a
-                href="{% url 'view_pdf' sub.tracking_number %}"
-                class="btn btn-primary btn-sm"
-              >
-                PDF Görüntüle
-              </a>
-            </td>
-            <td>{{ sub.status }}</td>
-            <td>
-              <div class="btn-group" role="group">
-                <!-- Anahtar Kelime Çıkar -->
-                <a
-                  href="{% url 'extract_keywords_view' sub.tracking_number %}"
-                  class="btn btn-secondary btn-sm"
-                >
-                  Anahtar Kelime Çıkar
+            <tr>
+              <td>{{ sub.tracking_number }}</td>
+              <td>
+                <a href="{% url 'view_pdf' sub.tracking_number %}" class="btn btn-primary btn-sm">
+                  PDF Görüntüle
                 </a>
-
-                {% if sub.status == "Gönderildi" or sub.status == "Revize" %}
-                  <!-- Anonimleştir -->
-                  <a
-                    href="{% url 'anonymize_view' sub.tracking_number %}"
-                    class="btn btn-info btn-sm"
-                  >
-                    Anonimleştir
+              </td>
+              <td>{{ sub.status }}</td>
+              <td>
+                <div class="btn-group" role="group">
+                  <a href="{% url 'extract_keywords_view' sub.tracking_number %}" class="btn btn-secondary btn-sm">
+                    Anahtar Kelime Çıkar
                   </a>
-                {% endif %}
-
-                {% if sub.status == "Anonimleştirildi" %}
-                  <!-- Anonim PDF İndir -->
-                  <a
-                    href="{% url 'download_anonymized_pdf' sub.tracking_number %}"
-                    class="btn btn-success btn-sm"
-                  >
-                    Anonim PDF İndir
-                  </a>
-                  <!-- Hakeme Ata -->
-                  <a
-                    href="{% url 'assign_reviewer' sub.tracking_number %}"
-                    class="btn btn-warning btn-sm"
-                  >
-                    Hakeme Ata
-                  </a>
-                  <!-- Orijinal Bilgileri Geri Yükle -->
-                  <a
-                    href="{% url 'restore_original' sub.tracking_number %}"
-                    class="btn btn-dark btn-sm"
-                  >
-                    Orijinal Bilgileri Yükle
-                  </a>
-                {% endif %}
-
-                {% if sub.status == "Değerlendirildi" %}
-                  <a
-                    href="{% url 'request_revision' sub.tracking_number %}"
-                    class="btn btn-info btn-sm"
-                  >
-                    Revize Gerekli
-                  </a>
-                  <a
-                    href="{% url 'finalize_view' sub.tracking_number %}"
-                    class="btn btn-dark btn-sm"
-                  >
-                    Final PDF Oluştur
-                  </a>
-                {% endif %}
-              </div>
-            </td>
-          </tr>
+                  {% if sub.status == "Gönderildi" or sub.status == "Revize" %}
+                    <a href="{% url 'anonymize_view' sub.tracking_number %}" class="btn btn-info btn-sm">
+                      Anonimleştir
+                    </a>
+                  {% endif %}
+                  {% if sub.status == "Anonimleştirildi" %}
+                    <a href="{% url 'download_anonymized_pdf' sub.tracking_number %}" class="btn btn-success btn-sm">
+                      Anonim PDF İndir
+                    </a>
+                    <a href="{% url 'assign_reviewer' sub.tracking_number %}" class="btn btn-warning btn-sm">
+                      Hakeme Ata
+                    </a>
+                    <a href="{% url 'restore_original' sub.tracking_number %}" class="btn btn-dark btn-sm">
+                      Orijinal Bilgileri Yükle
+                    </a>
+                  {% endif %}
+                  {% if sub.restored %}
+                    <a href="{% url 'view_restored_pdf' sub.tracking_number %}" class="btn btn-success btn-sm">
+                      Düzenlenmiş Anonim PDF’i Gör
+                    </a>
+                  {% endif %}
+                  {% if sub.status == "Değerlendirildi" %}
+                    <a href="{% url 'request_revision' sub.tracking_number %}" class="btn btn-info btn-sm">
+                      Revize Gerekli
+                    </a>
+                    <a href="{% url 'finalize_view' sub.tracking_number %}" class="btn btn-dark btn-sm">
+                      Final PDF Oluştur
+                    </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
           {% empty %}
-          <tr>
-            <td colspan="4">Makale yok.</td>
-          </tr>
+            <tr>
+              <td colspan="4">Makale yok.</td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>

@@ -34,7 +34,10 @@ body {
 .nav-link {
   margin-right: 0.5rem;
 }
-
+.btn-toolbar {
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+}
 @media (max-width: 576px) {
   .nav-link {
     text-align: center;

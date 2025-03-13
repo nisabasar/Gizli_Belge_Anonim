@@ -1,3 +1,4 @@
+# papers/models.py
 from django.db import models
 from django.utils import timezone
 from cryptography.fernet import Fernet
@@ -15,7 +16,6 @@ def decrypt_filename(enc_filename: str) -> str:
 class Domain(models.Model):
     name = models.CharField(max_length=150)
     subtopics = models.TextField(default="Genel")
-
     def __str__(self):
         return self.name
 
@@ -23,7 +23,6 @@ class Reviewer(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     interests = models.ManyToManyField(Domain, related_name='reviewers')
-
     def __str__(self):
         return f"{self.name} - {self.email}"
 
@@ -51,15 +50,15 @@ class Submission(models.Model):
     review = models.TextField(null=True, blank=True)
     reviewer = models.ForeignKey(Reviewer, null=True, blank=True, on_delete=models.SET_NULL)
     timestamp = models.DateTimeField(default=timezone.now)
-
+    # Anonimleştirilmiş hassas alanların (ör. koordinat, kategori, orijinal metin) bilgilerini saklar.
+    anonymized_data = models.TextField(null=True, blank=True)
+    restored = models.BooleanField(default=False)
     def __str__(self):
         return f"{self.tracking_number} - {self.status}"
-
     def save(self, *args, **kwargs):
         if self.original_pdf and not self.encrypted_filename:
             self.encrypted_filename = encrypt_filename(self.original_pdf.name)
         super().save(*args, **kwargs)
-
     def get_decrypted_filename(self):
         if self.encrypted_filename:
             return decrypt_filename(self.encrypted_filename)
@@ -69,7 +68,6 @@ class Log(models.Model):
     submission = models.ForeignKey(Submission, on_delete=models.CASCADE)
     action = models.CharField(max_length=200)
     timestamp = models.DateTimeField(default=timezone.now)
-
     def __str__(self):
         return f"{self.submission.tracking_number} | {self.action} | {self.timestamp}"
 
@@ -79,6 +77,5 @@ class Message(models.Model):
     sender_email = models.CharField(max_length=100, null=True, blank=True)
     content = models.TextField()
     timestamp = models.DateTimeField(default=timezone.now)
-
     def __str__(self):
         return f"{self.sender} ({self.sender_email}): {self.content[:30]}"
