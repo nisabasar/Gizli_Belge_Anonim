@@ -2,13 +2,15 @@ import os
 import hashlib
 import uuid
 import json
+# papers/views.py
+from .models import Submission, Log, Message, Domain, Reviewer, Subtopic
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.conf import settings
 from django.contrib import messages
 from django.http import FileResponse
 
-from .models import Submission, Log, Message, Domain, Reviewer
+from .models import Submission, Log, Message, Domain, Reviewer, Subtopic
 from .forms import (
     UploadForm, ReviseForm, StatusForm, ReviewForm,
     MessageForm, ReplyForm, AnonymizeOptionsForm
@@ -124,20 +126,31 @@ def extract_keywords_view(request, tracking_number):
     pdf_path = sub.revised_pdf.path if sub.revised_pdf else sub.original_pdf.path
     kws = extract_keywords_from_pdf_nlp(pdf_path)
     if kws:
+        # Anahtar kelimeleri kaydediyoruz
         sub.extracted_keywords = ", ".join(kws)
-        Log.objects.create(submission=sub, action="Anahtar kelimeler çıkarıldı")
-        for d in Domain.objects.all():
-            domain_name_lower = d.name.lower()
-            subtopics_lower = [s.strip().lower() for s in d.subtopics.split(',')]
-            for kw in kws:
-                kw_lower = kw.lower()
-                if kw_lower in domain_name_lower or any(kw_lower in st for st in subtopics_lower):
-                    sub.domains.add(d)
         sub.save()
+
+        # Her anahtar kelime için domain/subtopic eşleştirmesi
+        for kw in kws:
+            kw_lower = kw.lower()
+            # Domain'leri gezelim
+            for domain in Domain.objects.all():
+                # O domain'in alt başlıklarını (Subtopic) gez
+                for st in domain.subtopics.all():
+                    st_lower = st.name.lower()
+                    # Eğer kw_lower alt başlık adında geçiyorsa:
+                    if kw_lower in st_lower:
+                        # Makale domain ile ilgili diyebiliriz (isterseniz sub.domains alanınız varsa ekleyin)
+                        # sub.domains.add(domain)  # Domain alanınız varsa
+                        # sub.subtopics.add(st)     # Subtopic alanınız varsa
+                        pass
+
+        messages.success(request, "Anahtar kelimeler çıkarıldı.")
         return render(request, 'extracted_keywords.html', {'submission': sub, 'keywords': kws})
     else:
         messages.info(request, "Anahtar kelime bulunamadı.")
         return redirect('editor_dashboard')
+
 
 def anonymize_view(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
@@ -167,47 +180,66 @@ def anonymize_view(request, tracking_number):
         form = AnonymizeOptionsForm()
     return render(request, 'anonymize_options.html', {'form': form, 'submission': sub})
 
-# Örnek: assign_reviewer fonksiyonu
 def assign_reviewer(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
-    # Makalenin alt başlıkları:
-    sub_subtopics = sub.subtopics.all()  # "Derin öğrenme", "Doğal dil işleme", vs.
+    all_subtopics = Subtopic.objects.all()  # Tüm alt başlıkları listele
+    step = 1  # Varsayılan olarak ilk adım
 
-    # Bu alt başlıklarla ilgilenen hakemler:
-    matching_reviewers = Reviewer.objects.filter(interests__in=sub_subtopics).distinct()
+    chosen_subtopic_ids = []
+    matching_reviewers = Reviewer.objects.none()
 
     if request.method == 'POST':
-        reviewer_id = request.POST.get('reviewer_id')
-        if reviewer_id:
-            rev = Reviewer.objects.get(id=reviewer_id)
-            sub.reviewer = rev
-            sub.status = "Hakeme Atandı"
-            sub.save()
-            messages.success(request, f"{rev.name} adlı hakeme atandı.")
-            return redirect('editor_dashboard')
+        step_value = request.POST.get('step')
+        if step_value == '1':
+            # 1. adım: Kullanıcı alt başlık(lar) seçti, uygun hakemleri bulacağız
+            chosen_subtopic_ids = request.POST.getlist('chosen_subtopics')
+            if chosen_subtopic_ids:
+                # Subtopic id'lerini Subtopic objelerine çevirin
+                subtopic_qs = Subtopic.objects.filter(id__in=chosen_subtopic_ids)
+                # Uygun hakemleri bul: interests kesişimi
+                matching_reviewers = Reviewer.objects.filter(interests__in=subtopic_qs).distinct()
+            # Artık step = 2'ye geçiyoruz
+            step = 2
 
-    return render(request, 'assign_reviewer.html', {
+        elif step_value == '2':
+            # 2. adım: Kullanıcı hakem seçti, atama yap
+            chosen_subtopic_ids = request.POST.getlist('chosen_subtopics')  # hidden field
+            reviewer_id = request.POST.get('reviewer_id')
+            if reviewer_id:
+                rev = get_object_or_404(Reviewer, id=reviewer_id)
+                sub.reviewer = rev
+                sub.status = "Hakeme Atandı"
+                sub.save()
+                messages.success(request, f"{rev.name} adlı hakeme atandı.")
+                return redirect('editor_dashboard')
+            else:
+                messages.error(request, "Lütfen bir hakem seçiniz.")
+                step = 2
+                # Tekrar hakem listesini gösterebilmek için subtopic_qs => matching_reviewers
+                subtopic_qs = Subtopic.objects.filter(id__in=chosen_subtopic_ids)
+                matching_reviewers = Reviewer.objects.filter(interests__in=subtopic_qs).distinct()
+
+    context = {
         'submission': sub,
-        'matching_reviewers': matching_reviewers
-    })
+        'all_subtopics': all_subtopics,
+        'step': step,
+        'matching_reviewers': matching_reviewers,
+        'chosen_subtopic_ids': chosen_subtopic_ids,
+    }
+    return render(request, 'assign_reviewer.html', context)
+
 
 def reviewer_list(request):
-    # Tüm hakemleri çek
     reviewers = Reviewer.objects.all()
-    return render(request, 'reviewer_list.html', {
-        'reviewers': reviewers
-    })
+    return render(request, 'reviewer_list.html', {'reviewers': reviewers})
 
 def reviewer_detail(request, reviewer_id):
-    # Seçilen hakemi bul
     reviewer = get_object_or_404(Reviewer, pk=reviewer_id)
-    # O hakeme atanmış makaleler
-    submissions = Submission.objects.filter(reviewer=reviewer).order_by('-timestamp')
+    submissions = Submission.objects.filter(reviewer=reviewer)
     return render(request, 'reviewer_detail.html', {
         'reviewer': reviewer,
         'submissions': submissions
     })
-
 
 def request_revision(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
@@ -281,28 +313,29 @@ def editor_messages(request):
     return render(request, 'editor_messages.html', {'all_msgs': all_msgs})
 
 
+
 def reviewer_panel(request):
-    reviewers = Reviewer.objects.all()  # Tüm hakem kayıtları
+    # Tüm hakemleri çek
+    reviewers = Reviewer.objects.all().order_by('name')
     chosen_reviewer = None
     submissions = None
 
     if request.method == 'POST':
         reviewer_id = request.POST.get('reviewer_id')
         if reviewer_id:
-            chosen_reviewer = Reviewer.objects.get(id=reviewer_id)
-            # Örneğin, makaleleri getirmek:
-            # submissions = Submission.objects.filter(reviewer=chosen_reviewer)
+            chosen_reviewer = get_object_or_404(Reviewer, pk=reviewer_id)
+            # Bu hakeme atanmış makaleleri bulalım
+            submissions = Submission.objects.filter(reviewer=chosen_reviewer).order_by('-timestamp')
 
     return render(request, 'reviewer_panel.html', {
         'reviewers': reviewers,
         'chosen_reviewer': chosen_reviewer,
-        'submissions': submissions
+        'submissions': submissions,
     })
 
 
-
 # HAKEM (Değerlendirici) Süreci
-def reviewer_dashboard(request):
+#def reviewer_dashboard(request):
     subs = Submission.objects.filter(status__in=["Hakeme Atandı", "Değerlendirildi"]).order_by('-timestamp')
     return render(request, 'reviewer_panel.html', {'submissions': subs})
 
@@ -316,7 +349,7 @@ def review_view(request, tracking_number):
             sub.save()
             Log.objects.create(submission=sub, action="Hakem değerlendirme yaptı")
             messages.success(request, "Değerlendirme kaydedildi.")
-            return redirect('reviewer_dashboard')
+            return redirect('reviewer_panel')
     else:
         form = ReviewForm()
     return render(request, 'review.html', {'submission': sub, 'form': form})

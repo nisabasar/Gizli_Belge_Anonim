@@ -21,11 +21,23 @@ urlpatterns = [
     path('makalesistemi/yonetici/download_anon/<str:tracking_number>/', views.download_anonymized_pdf, name='download_anonymized_pdf'),
     path('makalesistemi/yonetici/restore/<str:tracking_number>/', views.restore_original, name='restore_original'),
     path('makalesistemi/yonetici/clear_all/', views.clear_all_submissions, name='clear_all_submissions'),
-    path('makalesistemi/degerlendirici/review/<str:tracking_number>/', views.review_view, name='review_view'),
-    path('makalesistemi/yonetici/view_restored/<str:tracking_number>/', views.view_restored_pdf, name='view_restored_pdf'),
-    path('makalesistemi/yonetici/view_pdf/<str:tracking_number>/', views.view_pdf, name='view_pdf'),
-    path('makalesistemi/yonetici/view_restored/<str:tracking_number>/', views.view_restored_pdf, name='view_restored_pdf'),
-    path('makalesistemi/degerlendirici/', views.reviewer_panel, name='reviewer_panel'),
-    path('makalesistemi/degerlendirici/dashboard/', views.reviewer_dashboard, name='reviewer_dashboard'),
 
+    # Hakemlerin makaleyi değerlendirdiği kısım
+    path('makalesistemi/degerlendirici/review/<str:tracking_number>/', views.review_view, name='review_view'),
+    
+    # Restore edilmiş PDF gösterme
+    path('makalesistemi/yonetici/view_restored/<str:tracking_number>/', views.view_restored_pdf, name='view_restored_pdf'),
+
+    # Asıl PDF görüntüleme (orijinal ya da anonymized)
+    path('makalesistemi/yonetici/view_pdf/<str:tracking_number>/', views.view_pdf, name='view_pdf'),
+
+    # HAKEM PANELI (Dropdown yaklaşımı)
+    path('makalesistemi/degerlendirici/', views.reviewer_panel, name='reviewer_panel'),
+
+    # Eğer “Hakem Dashboard” gibi ayrı bir fonksiyon varsa:
+    #path('makalesistemi/degerlendirici/dashboard/', views.reviewer_dashboard, name='reviewer_dashboard'),
+
+    # İsterseniz “reviewer_list” + “reviewer_detail” de ekleyebilirsiniz:
+    # path('makalesistemi/degerlendirici/list/', views.reviewer_list, name='reviewer_list'),
+    # path('makalesistemi/degerlendirici/detail/<int:reviewer_id>/', views.reviewer_detail, name='reviewer_detail'),
 ]

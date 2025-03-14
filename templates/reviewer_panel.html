@@ -5,6 +5,7 @@
     <h3>Hakem Paneli</h3>
   </div>
   <div class="card-body">
+    <!-- Hakem Seçme Formu -->
     <form method="POST" class="mb-3">
       {% csrf_token %}
       <div class="form-group">
@@ -12,20 +13,52 @@
         <select name="reviewer_id" class="form-control">
           <option value="">-- Seçin --</option>
           {% for rev in reviewers %}
-            <option value="{{ rev.id }}">{{ rev.name }} ({{ rev.email }})</option>
+            <option value="{{ rev.id }}"
+              {% if chosen_reviewer and chosen_reviewer.id == rev.id %}selected{% endif %}
+            >
+              {{ rev.name }} ({{ rev.email }})
+            </option>
           {% endfor %}
         </select>
       </div>
       <button type="submit" class="btn btn-primary">Göster</button>
     </form>
 
-    <!-- Seçilen hakeme ait makaleler listesi -->
     {% if chosen_reviewer %}
-      <h5>Seçilen Hakem: {{ chosen_reviewer.name }}</h5>
+      <h5>Seçilen Hakem: {{ chosen_reviewer.name }} ({{ chosen_reviewer.email }})</h5>
     {% endif %}
 
     {% if submissions %}
-      <!-- Makaleler tablosu -->
+      <hr/>
+      <h5>Bu hakeme atanmış makaleler</h5>
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead class="thead-dark">
+            <tr>
+              <th>Takip No</th>
+              <th>Durum</th>
+              <th>İşlemler</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sub in submissions %}
+            <tr>
+              <td>{{ sub.tracking_number }}</td>
+              <td>{{ sub.status }}</td>
+              <td>
+                <a href="{% url 'review_view' sub.tracking_number %}" class="btn btn-dark btn-sm">
+                  Değerlendir
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="3">Bu hakeme atanmış makale yok.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% endif %}
   </div>
 </div>

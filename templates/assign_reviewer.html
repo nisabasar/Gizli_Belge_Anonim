@@ -2,45 +2,63 @@
 {% block content %}
 <div class="card">
   <div class="card-header bg-dark text-white d-flex justify-content-between">
-    <h3>Hakem Atama (Takip No: {{ submission.tracking_number }})</h3>
+    <h3>Hakeme Atama (Takip No: {{ submission.tracking_number }})</h3>
     <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
   </div>
   <div class="card-body">
-    <p><strong>Makalenin Alt Başlıkları:</strong>
-      {% for st in submission.subtopics.all %}
-        <span class="badge badge-info">{{ st }}</span>
-      {% endfor %}
-    </p>
+    <p><strong>Makalenin Anahtar Kelimeleri:</strong> {{ submission.extracted_keywords }}</p>
     <hr />
-    <h5>Uygun Hakemler:</h5>
-    {% if matching_reviewers %}
-      <ul>
-        {% for rev in matching_reviewers %}
-          <li>
-            {{ rev.name }} ({{ rev.email }}) – İlgi Alanları: 
-            {% for st in rev.interests.all %}
-              <span class="badge badge-secondary">{{ st }}</span>
+
+    <!-- 1) Eğer step == 1 ise, alan(lar) seçimi formu göster -->
+    {% if step == 1 %}
+      <h5>Makale Alan(ları) Seç</h5>
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="1" />
+        <div class="form-group">
+          <label>Bu makale hangi alt başlık(lar) ile ilgili?</label>
+          <select name="chosen_subtopics" class="form-control" multiple size="5">
+            {% for st in all_subtopics %}
+              <option value="{{ st.id }}">{{ st }}</option>
             {% endfor %}
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p>Bu alt başlıklara uygun hakem bulunamadı.</p>
-    {% endif %}
-    <hr />
-    <form method="POST">
-      {% csrf_token %}
-      <div class="form-group">
-        <label for="reviewer_id">Hakem Seçiniz:</label>
-        <select name="reviewer_id" class="form-control">
-          <option value="">-- Seçin --</option>
+          </select>
+          <small class="form-text text-muted">Ctrl veya Shift ile birden fazla seçebilirsiniz.</small>
+        </div>
+        <button type="submit" class="btn btn-primary">Uygun Hakemleri Göster</button>
+      </form>
+
+    <!-- 2) Eğer step == 2 ise, uygun hakemler + hakem seçimi formu göster -->
+    {% elif step == 2 %}
+      <h5>Uygun Hakemler</h5>
+      {% if matching_reviewers %}
+        <ul>
           {% for rev in matching_reviewers %}
-            <option value="{{ rev.id }}">{{ rev.name }} ({{ rev.email }})</option>
+            <li>{{ rev.name }} ({{ rev.email }})</li>
           {% endfor %}
-        </select>
-      </div>
-      <button type="submit" class="btn btn-dark">Ata</button>
-    </form>
+        </ul>
+      {% else %}
+        <p>Seçilen alan(lar) ile ilgili hakem bulunamadı.</p>
+      {% endif %}
+      <hr />
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="2" />
+        <!-- Seçilen subtopics'i yeniden gönderiyoruz (hidden) -->
+        {% for sid in chosen_subtopic_ids %}
+          <input type="hidden" name="chosen_subtopics" value="{{ sid }}" />
+        {% endfor %}
+        <div class="form-group">
+          <label for="reviewer_id">Hakem Seçiniz:</label>
+          <select name="reviewer_id" class="form-control">
+            <option value="">-- Seçin --</option>
+            {% for rev in matching_reviewers %}
+              <option value="{{ rev.id }}">{{ rev.name }} ({{ rev.email }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-success">Ata</button>
+      </form>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
