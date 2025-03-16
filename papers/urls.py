@@ -31,13 +31,12 @@ urlpatterns = [
     # Asıl PDF görüntüleme (orijinal ya da anonymized)
     path('makalesistemi/yonetici/view_pdf/<str:tracking_number>/', views.view_pdf, name='view_pdf'),
 
+    path('makalesistemi/yonetici/view_final/<str:tracking_number>/', views.view_final_pdf, name='view_final_pdf'),
+
     # HAKEM PANELI (Dropdown yaklaşımı)
     path('makalesistemi/degerlendirici/', views.reviewer_panel, name='reviewer_panel'),
+    
+    path('makalesistemi/yonetici/view_reviewed/<str:tracking_number>/', views.view_reviewed_pdf, name='view_reviewed_pdf'),
 
-    # Eğer “Hakem Dashboard” gibi ayrı bir fonksiyon varsa:
-    #path('makalesistemi/degerlendirici/dashboard/', views.reviewer_dashboard, name='reviewer_dashboard'),
 
-    # İsterseniz “reviewer_list” + “reviewer_detail” de ekleyebilirsiniz:
-    # path('makalesistemi/degerlendirici/list/', views.reviewer_list, name='reviewer_list'),
-    # path('makalesistemi/degerlendirici/detail/<int:reviewer_id>/', views.reviewer_detail, name='reviewer_detail'),
 ]

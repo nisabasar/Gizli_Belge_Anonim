@@ -15,7 +15,7 @@ from .forms import (
     UploadForm, ReviseForm, StatusForm, ReviewForm,
     MessageForm, ReplyForm, AnonymizeOptionsForm
 )
-from .anonymization import anonymize_pdf, merge_review_comments, restore_original_fields
+from .anonymization import anonymize_pdf, merge_and_restore, merge_review_comments, restore_original_fields
 from .nlp_utils import extract_keywords_from_pdf_advanced as extract_keywords_from_pdf_nlp
 
 def generate_tracking_number():
@@ -287,22 +287,49 @@ def finalize_view(request, tracking_number):
     if sub.status != "Değerlendirildi":
         messages.error(request, "Hakem değerlendirmesi bitmeden final oluşturulamaz.")
         return redirect('editor_dashboard')
-    if not sub.anonymized_pdf or not sub.review:
-        messages.error(request, "Anonimleştirilmiş PDF veya hakem değerlendirmesi yok.")
+    if not sub.reviewed_pdf or not sub.anonymized_data:
+        messages.error(request, "Değerlendirilmiş makale veya anonimleştirilmiş bilgiler eksik.")
         return redirect('editor_dashboard')
-    anon_path = sub.anonymized_pdf.path
-    final_filename = f"final_{os.path.basename(anon_path)}"
+    
+    reviewed_path = sub.reviewed_pdf.path
+    final_filename = f"final_{os.path.basename(reviewed_path)}"
     final_path = os.path.join(settings.MEDIA_ROOT, 'final', final_filename)
-    success = merge_review_comments(anon_path, sub.review, final_path)
+    
+    try:
+        regions = json.loads(sub.anonymized_data)
+    except Exception as e:
+        messages.error(request, f"Anonimleştirilmiş bilgileri okuyamadık: {e}")
+        return redirect('editor_dashboard')
+    
+    # restore_original_fields artık output_pdf_path parametresi alıyor:
+    success = restore_original_fields(
+        input_pdf_path=reviewed_path,
+        original_pdf_path=sub.original_pdf.path,
+        regions=regions,
+        output_pdf_path=final_path
+    )
+    
     if success:
         sub.final_pdf.name = os.path.join('final', final_filename)
         sub.status = "Final"
         sub.save()
-        Log.objects.create(submission=sub, action="Final PDF oluşturuldu")
+        Log.objects.create(submission=sub, action="Final PDF oluşturuldu (orijinal bilgiler geri yüklendi)")
         messages.success(request, "Final PDF oluşturuldu.")
     else:
-        messages.error(request, "Final PDF oluşturulurken hata oluştu.")
+        messages.error(request, "Restore işlemi sırasında hata oluştu.")
     return redirect('editor_dashboard')
+
+
+
+
+def view_final_pdf(request, tracking_number):
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
+    if not sub.final_pdf:
+        messages.error(request, "Final PDF yok.")
+        return redirect('editor_dashboard')
+    pdf_path = sub.final_pdf.path
+    return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
+
 
 def editor_logs(request):
     logs = Log.objects.all().order_by('-timestamp')
@@ -341,18 +368,65 @@ def reviewer_panel(request):
 
 def review_view(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
+
+    # Hakem yalnızca anonim PDF'yi görmeli
+    anon_pdf_path = sub.anonymized_pdf.path if sub.anonymized_pdf else None
+    if not anon_pdf_path:
+        messages.error(request, "Anonimleştirilmiş PDF bulunamadı.")
+        return redirect('reviewer_panel')
+
     if request.method == 'POST':
         form = ReviewForm(request.POST)
         if form.is_valid():
-            sub.review = form.cleaned_data['review_text']
-            sub.status = "Değerlendirildi"
-            sub.save()
-            Log.objects.create(submission=sub, action="Hakem değerlendirme yaptı")
-            messages.success(request, "Değerlendirme kaydedildi.")
+            # Eğer zaten değerlendirme varsa, yeniden yazma engellenebilir:
+            if sub.status == "Değerlendirildi" or sub.review:
+                messages.error(request, "Değerlendirme zaten kaydedildi. Değiştirilemez.")
+                return redirect('reviewer_panel')
+
+            # Değerlendirme + ek açıklamaları birleştir
+            review_text = form.cleaned_data['review_text']
+            additional = form.cleaned_data.get('additional_notes', '')
+            combined_review = review_text
+            if additional:
+                combined_review += "\n\nEk Açıklamalar:\n" + additional
+
+            # PDF'i birleştir: anonim PDF + combined_review
+            reviewed_filename = f"reviewed_{os.path.basename(anon_pdf_path)}"
+            reviewed_path = os.path.join(settings.MEDIA_ROOT, 'reviewed', reviewed_filename)
+            success = merge_review_comments(anon_pdf_path, combined_review, reviewed_path)
+            if success:
+                # Submission güncelle
+                sub.review = combined_review
+                sub.reviewed_pdf.name = os.path.join('reviewed', reviewed_filename)
+                sub.status = "Değerlendirildi"
+                sub.save()
+                Log.objects.create(submission=sub, action="Hakem değerlendirme yaptı")
+                messages.success(request, "Değerlendirme kaydedildi ve Değerlendirilmiş Makale oluşturuldu.")
+            else:
+                messages.error(request, "PDF'e değerlendirme eklenirken hata oluştu.")
             return redirect('reviewer_panel')
     else:
-        form = ReviewForm()
+        # Formu ilk defa açıyoruz
+        if sub.review:
+            # Değerlendirme varsa readonly
+            form = ReviewForm(initial={'review_text': sub.review})
+            for field in form.fields:
+                form.fields[field].widget.attrs['readonly'] = True
+        else:
+            form = ReviewForm()
     return render(request, 'review.html', {'submission': sub, 'form': form})
+
+def view_reviewed_pdf(request, tracking_number):
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
+    if not sub.reviewed_pdf:
+        messages.error(request, "Değerlendirilmiş Makale bulunamadı.")
+        return redirect('editor_dashboard')
+    pdf_path = sub.reviewed_pdf.path
+    try:
+        return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
+    except Exception as e:
+        messages.error(request, f"PDF açılamadı: {e}")
+        return redirect('editor_dashboard')
 
 def restore_original(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)

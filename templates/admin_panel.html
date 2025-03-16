@@ -85,7 +85,7 @@
                       Orijinal Bilgileri Yükle
                     </a>
                   {% endif %}
-
+                  
                   <!-- Düzenlenmiş Anonim PDF’i Gör (eğer restore yapıldıysa) -->
                   {% if sub.restored %}
                     <a
@@ -95,7 +95,11 @@
                       Düzenlenmiş Anonim PDF’i Gör
                     </a>
                   {% endif %}
-
+                  {% if sub.status == "Değerlendirildi" and sub.reviewed_pdf %}
+                    <a href="{% url 'view_reviewed_pdf' sub.tracking_number %}" class="btn btn-info btn-sm">
+                      Değerlendirilmiş Makale
+                    </a>
+                {% endif %}
                   <!-- Revize Gerekli / Final PDF Oluştur (Değerlendirildi statüsünde) -->
                   {% if sub.status == "Değerlendirildi" %}
                     <a
@@ -109,6 +113,11 @@
                       class="btn btn-dark btn-sm"
                     >
                       Final PDF Oluştur
+                    </a>
+                  {% endif %}
+                  {% if sub.status == "Final" and sub.final_pdf %}
+                    <a href="{% url 'view_final_pdf' sub.tracking_number %}" class="btn btn-primary btn-sm">
+                      Final PDF
                     </a>
                   {% endif %}
                 </div>

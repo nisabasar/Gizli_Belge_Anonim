@@ -65,6 +65,7 @@ class Submission(models.Model):
     review = models.TextField(null=True, blank=True)
     reviewer = models.ForeignKey(Reviewer, null=True, blank=True, on_delete=models.SET_NULL)
     timestamp = models.DateTimeField(default=timezone.now)
+    reviewed_pdf = models.FileField(upload_to='reviewed/', null=True, blank=True)  # Yeni alan
     anonymized_data = models.TextField(null=True, blank=True)
     restored = models.BooleanField(default=False)
     def __str__(self):

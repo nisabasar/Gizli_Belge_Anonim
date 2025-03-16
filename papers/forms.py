@@ -30,8 +30,20 @@ class StatusForm(forms.Form):
     tracking_number = forms.CharField(label='Takip Numarası')
     email = forms.EmailField(label='E-posta Adresi', validators=[strict_email_validator])
 
+# papers/forms.py
+from django import forms
+
 class ReviewForm(forms.Form):
-    review_text = forms.CharField(label='Değerlendirme Notları', widget=forms.Textarea)
+    review_text = forms.CharField(
+        label='Değerlendirme Notları',
+        widget=forms.Textarea(attrs={'rows': 5, 'placeholder': 'Değerlendirme notlarınızı buraya yazın...'})
+    )
+    additional_notes = forms.CharField(
+        label='Ek Açıklamalar (Opsiyonel)',
+        widget=forms.Textarea(attrs={'rows': 3, 'placeholder': 'Varsa ek açıklamalarınızı buraya yazın...'}),
+        required=False
+    )
+
 
 class MessageForm(forms.Form):
     email = forms.EmailField(label='E-posta Adresi (gönderen)', validators=[strict_email_validator])
