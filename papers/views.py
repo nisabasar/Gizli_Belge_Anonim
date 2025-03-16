@@ -284,6 +284,7 @@ def reply_to_message(request, message_id):
 
 def finalize_view(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
+    # Hakem değerlendirmesi bitmiş olmalı
     if sub.status != "Değerlendirildi":
         messages.error(request, "Hakem değerlendirmesi bitmeden final oluşturulamaz.")
         return redirect('editor_dashboard')
@@ -301,7 +302,7 @@ def finalize_view(request, tracking_number):
         messages.error(request, f"Anonimleştirilmiş bilgileri okuyamadık: {e}")
         return redirect('editor_dashboard')
     
-    # restore_original_fields artık output_pdf_path parametresi alıyor:
+    # Restore işleminde, reviewed PDF üzerinde orijinal blur alanlarını geri yüklüyoruz
     success = restore_original_fields(
         input_pdf_path=reviewed_path,
         original_pdf_path=sub.original_pdf.path,
@@ -310,14 +311,30 @@ def finalize_view(request, tracking_number):
     )
     
     if success:
+        # Artık final_path'te restore edilmiş PDF var
         sub.final_pdf.name = os.path.join('final', final_filename)
-        sub.status = "Final"
+        sub.status = "Final"          # Makale statüsünü Final olarak güncelliyoruz
+        sub.final_sent = False        # Henüz gönderilmedi
         sub.save()
-        Log.objects.create(submission=sub, action="Final PDF oluşturuldu (orijinal bilgiler geri yüklendi)")
-        messages.success(request, "Final PDF oluşturuldu.")
+        Log.objects.create(submission=sub, action="Final PDF oluşturuldu (henüz gönderilmedi)")
+        messages.success(request, "Final PDF oluşturuldu. Lütfen 'Final PDF Gönder' butonuna basınız.")
     else:
         messages.error(request, "Restore işlemi sırasında hata oluştu.")
     return redirect('editor_dashboard')
+
+
+def send_final_pdf(request, tracking_number):
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
+    if not sub.final_pdf:
+        messages.error(request, "Final PDF oluşturulmamış.")
+        return redirect('editor_dashboard')
+    
+    sub.final_sent = True
+    sub.save()
+    Log.objects.create(submission=sub, action="Final PDF gönderildi (yazara iletildi)")
+    messages.success(request, "Final PDF yazara gönderildi.")
+    return redirect('editor_dashboard')
+
 
 
 

@@ -30,6 +30,12 @@
     <p>
       <a href="{% url 'send_message' submission.tracking_number %}" class="btn btn-info btn-sm">Editöre Mesaj Gönder</a>
       <a href="{% url 'submission_messages' submission.tracking_number %}" class="btn btn-warning btn-sm">Mesajları Gör</a>
+      {% if submission.final_sent and submission.final_pdf %}
+        <a href="{{ submission.final_pdf.url }}" class="btn btn-success">
+          Final PDF’i Gör
+        </a>
+      {% endif %}
+
       {% if submission.status == "Revize Gerekli" %}
       <a href="{% url 'revise_paper' submission.tracking_number %}" class="btn btn-dark btn-sm">Revize Makale Yükle</a>
       {% endif %}

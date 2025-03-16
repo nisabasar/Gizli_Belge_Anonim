@@ -38,5 +38,7 @@ urlpatterns = [
     
     path('makalesistemi/yonetici/view_reviewed/<str:tracking_number>/', views.view_reviewed_pdf, name='view_reviewed_pdf'),
 
+    path('makalesistemi/yonetici/send_final/<str:tracking_number>/', views.send_final_pdf, name='send_final_pdf'),
+
 
 ]

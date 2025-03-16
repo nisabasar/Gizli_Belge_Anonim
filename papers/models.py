@@ -58,6 +58,7 @@ class Submission(models.Model):
     revised_pdf = models.FileField(upload_to='uploads/', null=True, blank=True)
     anonymized_pdf = models.FileField(upload_to='anonymized/', null=True, blank=True)
     final_pdf = models.FileField(upload_to='final/', null=True, blank=True)
+    final_sent = models.BooleanField(default=False)  # Final PDF gönderildi mi?
     extracted_keywords = models.TextField(blank=True, null=True)
     # Makale, ilgili alt başlıkları (Subtopic) tutar.
     subtopics = models.ManyToManyField(Subtopic, blank=True, related_name='submissions')
