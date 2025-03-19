@@ -40,5 +40,10 @@ urlpatterns = [
 
     path('makalesistemi/yonetici/send_final/<str:tracking_number>/', views.send_final_pdf, name='send_final_pdf'),
 
+    path(
+        'makalesistemi/yazar/request_revision/<str:tracking_number>/',
+        views.request_revision_user,
+        name='request_revision_user'
+    ),
 
 ]

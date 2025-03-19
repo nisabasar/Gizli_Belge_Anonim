@@ -42,12 +42,12 @@
                   </a>
 
                   <!-- Anonimleştir -->
-                  {% if sub.status == "Gönderildi" or sub.status == "Revize" %}
-                    <a href="{% url 'anonymize_view' sub.tracking_number %}"
-                       class="btn btn-info btn-sm">
+                  {% if sub.status == "Gönderildi" or sub.status == "Revize" or sub.status == "Revize Gerekli" %}
+                    <a href="{% url 'anonymize_view' sub.tracking_number %}" class="btn btn-info btn-sm">
                       Anonimleştir
                     </a>
                   {% endif %}
+
 
                   <!-- Anonim PDF İndir (varsa) -->
                   {% if sub.anonymized_pdf %}
@@ -78,11 +78,11 @@
                   {% endif %}
 
                   <!-- Revize Gerekli -->
-                  {% if sub.status == "Değerlendirildi" %}
+                  <!-- {% if sub.status == "Değerlendirildi" %}
                     <a href="{% url 'request_revision' sub.tracking_number %}"
                        class="btn btn-info btn-sm">
                       Revize Gerekli
-                    </a>
+                    </a> -->
                     <!-- Final PDF Oluştur -->
                     <a href="{% url 'finalize_view' sub.tracking_number %}"
                        class="btn btn-dark btn-sm">

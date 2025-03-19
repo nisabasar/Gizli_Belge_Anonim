@@ -335,7 +335,26 @@ def send_final_pdf(request, tracking_number):
     messages.success(request, "Final PDF yazara gönderildi.")
     return redirect('editor_dashboard')
 
+def request_revision_user(request, tracking_number):
+    """
+    Yazar, final PDF'yi gördükten sonra 'Revize Gerekli' butonuna basarak
+    makaleyi tekrar revize sürecine döndürür.
+    """
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
 
+    # Yalnızca Final statüsündeki makalelerde revize talep edilebilir
+    if sub.status != "Final":
+        messages.error(request, "Yalnızca final durumundaki makalelerde revize talep edebilirsiniz.")
+        return redirect('status')
+
+    # Makale yeniden revize sürecine giriyor
+    sub.status = "Revize Gerekli"
+    sub.final_sent = False  # final gönderimi iptal
+    sub.save()
+
+    Log.objects.create(submission=sub, action="Yazar revize talep etti (Final aşamasından geri).")
+    messages.success(request, "Revize talebiniz alındı. Makale yeniden revize sürecine girdi.")
+    return redirect('status')  # Yazar tekrar durum sorgulama sayfasına yönlendirilsin
 
 
 
