@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-header bg-dark text-white d-flex justify-content-between">
+    <h3>Hakem Değiştir (Takip No: {{ submission.tracking_number }})</h3>
+    <a href="{% url 'editor_dashboard' %}" class="btn btn-light btn-sm">GERİ DÖN</a>
+  </div>
+  <div class="card-body">
+    <p><strong>Şu anki Hakem:</strong>
+      {% if submission.reviewer %}
+        {{ submission.reviewer.name }} ({{ submission.reviewer.email }})
+      {% else %}
+        - Yok -
+      {% endif %}
+    </p>
+    <hr />
+    <h5>Yeni Hakem Seç:</h5>
+    <form method="POST">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="reviewer_id">Hakem Seçiniz:</label>
+        <select name="reviewer_id" class="form-control">
+          <option value="">-- Seçin --</option>
+          {% for rev in reviewers %}
+            <option value="{{ rev.id }}">
+              {{ rev.name }} ({{ rev.email }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-dark">Değiştir</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

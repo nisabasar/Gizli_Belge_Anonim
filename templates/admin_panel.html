@@ -68,6 +68,12 @@
                       Orijinal Bilgileri Yükle
                     </a>
                   {% endif %}
+                  {% if sub.status == "Hakeme Atandı" and sub.reviewer %}
+                    <a href="{% url 'reassign_reviewer' sub.tracking_number %}"
+                        class="btn btn-warning btn-sm">
+                      Hakem Değiştir
+                    </a>
+                  {% endif %}
 
                   <!-- Değerlendirilmiş Makale (Hakem eklediği) -->
                   {% if sub.status == "Değerlendirildi" and sub.reviewed_pdf %}

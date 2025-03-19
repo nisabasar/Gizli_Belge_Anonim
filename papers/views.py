@@ -405,52 +405,85 @@ def reviewer_panel(request):
 def review_view(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
 
-    # Hakem yalnızca anonim PDF'yi görmeli
-    anon_pdf_path = sub.anonymized_pdf.path if sub.anonymized_pdf else None
-    if not anon_pdf_path:
+    # Hakem yalnızca "Hakeme Atandı" statüsünde değerlendirme yapabilsin
+    if sub.status != "Hakeme Atandı":
+        messages.error(request, "Bu makale şu an değerlendirilemez (Hakeme Atanmadı).")
+        return redirect('reviewer_panel')
+
+    # Anonimleştirilmiş PDF yoksa hata
+    if not sub.anonymized_pdf:
         messages.error(request, "Anonimleştirilmiş PDF bulunamadı.")
         return redirect('reviewer_panel')
 
     if request.method == 'POST':
         form = ReviewForm(request.POST)
         if form.is_valid():
-            # Eğer zaten değerlendirme varsa, yeniden yazma engellenebilir:
-            if sub.status == "Değerlendirildi" or sub.review:
-                messages.error(request, "Değerlendirme zaten kaydedildi. Değiştirilemez.")
-                return redirect('reviewer_panel')
+            review_text = form.cleaned_data['review_text']
+            additional_notes = form.cleaned_data.get('additional_notes', '')
 
             # Değerlendirme + ek açıklamaları birleştir
-            review_text = form.cleaned_data['review_text']
-            additional = form.cleaned_data.get('additional_notes', '')
             combined_review = review_text
-            if additional:
-                combined_review += "\n\nEk Açıklamalar:\n" + additional
+            if additional_notes:
+                combined_review += "\n\nEk Açıklamalar:\n" + additional_notes
 
-            # PDF'i birleştir: anonim PDF + combined_review
+            # Anonim PDF + combined_review -> yeni reviewed PDF
+            import os
+            from django.conf import settings
+            from .anonymization import merge_review_comments  # Örnek
+
+            anon_pdf_path = sub.anonymized_pdf.path
             reviewed_filename = f"reviewed_{os.path.basename(anon_pdf_path)}"
             reviewed_path = os.path.join(settings.MEDIA_ROOT, 'reviewed', reviewed_filename)
+
             success = merge_review_comments(anon_pdf_path, combined_review, reviewed_path)
             if success:
-                # Submission güncelle
                 sub.review = combined_review
                 sub.reviewed_pdf.name = os.path.join('reviewed', reviewed_filename)
                 sub.status = "Değerlendirildi"
                 sub.save()
-                Log.objects.create(submission=sub, action="Hakem değerlendirme yaptı")
+                Log.objects.create(submission=sub, action="Hakem yeni değerlendirme yaptı.")
                 messages.success(request, "Değerlendirme kaydedildi ve Değerlendirilmiş Makale oluşturuldu.")
             else:
                 messages.error(request, "PDF'e değerlendirme eklenirken hata oluştu.")
             return redirect('reviewer_panel')
     else:
-        # Formu ilk defa açıyoruz
-        if sub.review:
-            # Değerlendirme varsa readonly
-            form = ReviewForm(initial={'review_text': sub.review})
-            for field in form.fields:
-                form.fields[field].widget.attrs['readonly'] = True
-        else:
-            form = ReviewForm()
+        # İlk defa formu açıyorsak, alanları boş verelim.
+        # (Eğer bir önceki review'ı göstermek isterseniz, initial ekleyebilirsiniz.)
+        form = ReviewForm()
+
     return render(request, 'review.html', {'submission': sub, 'form': form})
+
+# papers/views.py
+def reassign_reviewer(request, tracking_number):
+    sub = get_object_or_404(Submission, tracking_number=tracking_number)
+
+    # Tüm reviewer’ları veya matching reviewer’ları listeleyebilirsiniz
+    # (Örn. alt başlıklarla ilgilenen hakemler). Burada basitçe hepsini gösterelim:
+    all_reviewers = Reviewer.objects.all()
+
+    if request.method == 'POST':
+        reviewer_id = request.POST.get('reviewer_id')
+        if reviewer_id:
+            new_reviewer = get_object_or_404(Reviewer, id=reviewer_id)
+            sub.reviewer = new_reviewer
+            # İsterseniz statüyü tekrar "Hakeme Atandı" yapabilirsiniz
+            sub.status = "Hakeme Atandı"
+            sub.save()
+            Log.objects.create(
+                submission=sub,
+                action=f"Hakem değiştirildi. Yeni hakem: {new_reviewer.name}"
+            )
+            messages.success(request, f"Hakem {new_reviewer.name} olarak değiştirildi.")
+            return redirect('editor_dashboard')
+        else:
+            messages.error(request, "Lütfen bir hakem seçiniz.")
+
+    context = {
+        'submission': sub,
+        'reviewers': all_reviewers
+    }
+    return render(request, 'reassign_reviewer.html', context)
+
 
 def view_reviewed_pdf(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)

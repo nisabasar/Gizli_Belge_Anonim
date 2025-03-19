@@ -46,4 +46,9 @@ urlpatterns = [
         name='request_revision_user'
     ),
 
+    path(
+        'makalesistemi/yonetici/reassign/<str:tracking_number>/',
+        views.reassign_reviewer,
+        name='reassign_reviewer'
+    ),
 ]
