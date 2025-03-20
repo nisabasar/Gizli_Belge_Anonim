@@ -277,24 +277,26 @@ def finalize_view(request, tracking_number):
     if not sub.reviewed_pdf or not sub.anonymized_data:
         messages.error(request, "Değerlendirilmiş makale veya anonimleştirilmiş bilgiler eksik.")
         return redirect('editor_dashboard')
-    
+
     reviewed_path = sub.reviewed_pdf.path
     final_filename = f"final_{os.path.basename(reviewed_path)}"
     final_path = os.path.join(settings.MEDIA_ROOT, 'final', final_filename)
-    
+
     try:
         regions = json.loads(sub.anonymized_data)
     except Exception as e:
         messages.error(request, f"Anonimleştirilmiş bilgileri okuyamadık: {e}")
         return redirect('editor_dashboard')
-    
+
+    # Tüm kategorileri geri yüklemek istiyorsanız:
     success = restore_original_fields(
         input_pdf_path=reviewed_path,
         original_pdf_path=sub.original_pdf.path,
         regions=regions,
+        categories_to_restore=["name", "contact", "institution"],  # Örnek
         output_pdf_path=final_path
     )
-    
+
     if success:
         sub.final_pdf.name = os.path.join('final', final_filename)
         sub.status = "Final"
@@ -444,11 +446,6 @@ def view_reviewed_pdf(request, tracking_number):
 
 
 def restore_original(request, tracking_number):
-    """
-    Seçilen kategoriler (örn. name, contact, institution) için restore işlemi,
-    yani blur yapılan alanları orijinal PDF'den alınan görüntüyle günceller.
-    Bu işlem, sub.anonymized_pdf üzerine kaydedilir.
-    """
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
     if request.method == 'POST':
         form = AnonymizeOptionsForm(request.POST)
@@ -460,27 +457,34 @@ def restore_original(request, tracking_number):
                 selected.append("contact")
             if form.cleaned_data.get('anonymize_institution'):
                 selected.append("institution")
+
             if not selected:
                 messages.error(request, "Hiçbir alan seçilmedi!")
                 return redirect('editor_dashboard')
+
             if not sub.anonymized_data:
                 messages.error(request, "Anonimleştirme bilgileri bulunamadı.")
                 return redirect('editor_dashboard')
+
             try:
                 regions = json.loads(sub.anonymized_data)
             except Exception as e:
                 messages.error(request, f"Anonimleştirilmiş bilgileri okuyamadık: {e}")
                 return redirect('editor_dashboard')
-            # Restore işlemi: categories_to_restore parametresi kaldırıldı.
+
+            # output_pdf_path olarak, orijinal dosyanın üzerine yazmak yerine,
+            # sub.anonymized_pdf.path ile güncelleme yapılacak.
             success = restore_original_fields(
                 input_pdf_path=sub.anonymized_pdf.path,
                 original_pdf_path=sub.original_pdf.path,
                 regions=regions,
+                categories_to_restore=selected,
                 output_pdf_path=sub.anonymized_pdf.path
             )
+
             if success:
-                sub.status = "Düzenlenmiş"
                 sub.restored = True
+                sub.status = "Düzenlenmiş"
                 sub.save()
                 Log.objects.create(submission=sub, action="Orijinal bilgiler geri yüklendi")
                 messages.success(request, "Seçili alanlar orijinal hale getirildi (kısmi restore).")

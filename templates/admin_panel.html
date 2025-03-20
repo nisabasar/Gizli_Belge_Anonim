@@ -58,7 +58,7 @@
                   {% endif %}
 
                   <!-- Hakeme Ata -->
-                  {% if sub.status == "Anonimleştirildi" %}
+                  {% if sub.status == "Anonimleştirildi" or sub.status == "Düzenlenmiş" %}
                     <a href="{% url 'assign_reviewer' sub.tracking_number %}"
                        class="btn btn-warning btn-sm">
                       Hakeme Ata
@@ -111,6 +111,13 @@
                       Final PDF Gönder
                     </a>
                   {% endif %}
+
+                  {% if sub.restored %}
+                     <a href="{% url 'view_restored_pdf' sub.tracking_number %}" class="btn btn-success btn-sm">
+                       Düzenlenmiş Anonim PDF’i Gör
+                     </a>
+                  {% endif %}
+
                 </div>
               </td>
             </tr>

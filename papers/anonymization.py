@@ -84,25 +84,30 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, options=None):
     doc.close()
     return regions
 
-def restore_original_fields(input_pdf_path, original_pdf_path, regions, output_pdf_path):
+def restore_original_fields(input_pdf_path, original_pdf_path, regions, categories_to_restore, output_pdf_path):
     """
-    input_pdf_path: Restore edilecek PDF (örneğin, reviewer tarafından oluşturulan, değerlendirme eklenmiş PDF)
+    input_pdf_path: Restore edilecek PDF (örneğin, hakem tarafından oluşturulan, değerlendirme eklenmiş PDF)
     original_pdf_path: Yüklenen orijinal PDF'nin yolu
     regions: Anonymize sırasında kaydedilmiş blur yapılan alanların bilgileri.
              Örnek: [{"category": "contact", "text": "mzlyq@cust.edu.cn", "rect": [330.28, 164.92, 401.57, 174.89], "page": 0}, ...]
-    output_pdf_path: Restore edilmiş PDF'nin kaydedileceği yeni dosya yolu.
+    categories_to_restore: Geri yüklenecek alan kategorilerinin listesi. Örneğin: ["name", "contact", "institution"]
+    output_pdf_path: Restore edilmiş PDF'nin kaydedileceği dosya yolu.
     
-    İşlev: input_pdf üzerindeki, blur yapılan alanları original_pdf'den alınan görüntüyle tamamen kapatıp,
-           restore edilmiş PDF'yi output_pdf_path'e kaydeder.
+    İşlev: input_pdf üzerindeki, blur yapılan alanlardan yalnızca categories_to_restore listesindeki
+    kategorilere ait olanları, original_pdf'den alınan görüntüyle kapatır ve restore edilmiş PDF'yi
+    output_pdf_path'e kaydeder.
     """
     try:
         doc = fitz.open(input_pdf_path)
         orig_doc = fitz.open(original_pdf_path)
-        # Çıktı klasörünü oluştur (eğer yoksa)
         os.makedirs(os.path.dirname(output_pdf_path), exist_ok=True)
-        
+
         for region in regions:
-            # Eğer "rect" anahtarı varsa, ondan al
+            # Sadece seçilen kategorideki bölgeleri restore edelim.
+            if region.get("category") not in categories_to_restore:
+                continue
+
+            # Bölge bilgilerini alalım.
             if "rect" in region:
                 coords = region["rect"]
                 if not (isinstance(coords, list) and len(coords) == 4):
@@ -119,12 +124,12 @@ def restore_original_fields(input_pdf_path, original_pdf_path, regions, output_p
                     print("Region conversion error:", region, e)
                     continue
 
-            # Koordinatların geçerli olup olmadığını kontrol edin:
             if x2 <= x1 or y2 <= y1:
                 print("Skipping invalid region (x2<=x1 veya y2<=y1):", region)
                 continue
 
             rect = fitz.Rect(x1, y1, x2, y2)
+
             try:
                 page_num = int(region.get("page", 0))
             except Exception as e:
@@ -133,23 +138,24 @@ def restore_original_fields(input_pdf_path, original_pdf_path, regions, output_p
 
             try:
                 orig_page = orig_doc[page_num]
-                # Original sayfadan bu bölgenin görüntüsünü al
                 pix = orig_page.get_pixmap(clip=rect)
                 img_bytes = pix.tobytes("png")
-                # Restore işlemi yapılacak sayfayı al
                 doc_page = doc[page_num]
-                # İlk olarak, blur yapılan bölgeyi beyazla kapat
+                # İlk olarak, blur yapılan bölgeyi beyaz ile kapatıyoruz.
                 doc_page.draw_rect(rect, fill=(1, 1, 1))
-                # Sonra, original görüntüyü ekle
+                # Ardından, original görüntüyü ekliyoruz.
                 doc_page.insert_image(rect, stream=img_bytes)
             except Exception as e:
                 print("Error processing region", region, e)
                 continue
-        
-        # Yeni PDF'yi output_pdf_path'e kaydet
-        doc.save(output_pdf_path)
+
+        # Eğer output_pdf_path, input_pdf_path ile aynıysa (dosyayı yerinde güncelliyorsak)
+        # incremental mod sorun çıkardığından geçici bir dosyaya kaydedip daha sonra değiştiriyoruz.
+        temp_path = output_pdf_path + ".temp"
+        doc.save(temp_path)
         doc.close()
         orig_doc.close()
+        os.replace(temp_path, output_pdf_path)
         return True
     except Exception as e:
         print("restore_original_fields error:", e)
