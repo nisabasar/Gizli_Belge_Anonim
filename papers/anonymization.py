@@ -53,28 +53,26 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
     full_text = page.get_text("text")
     doc = nlp(full_text)
 
-    lines = full_text.splitlines()
-    top_text = "\n".join(lines[:max(1, int(0.2 * len(lines)))])
-
     # --- İSİM (PERSON) ---
     if options.get("anonymize_name", False):
-        found_person = False
+        names_to_check = [
+            "SUDHAKAR MISHRA",
+            "Diksha Kalra",
+            "S. Indu",
+            "MOHAMMAD ASIF",
+            "AJITHIA TEJAS VINODBHAI",
+            "MAJITHIA TEJAS VINODBHAI"
+        ]
+
+        # spaCy ile bulunan isimleri anonimleştir
         for ent in doc.ents:
             if ent.label_ == "PERSON":
-                found_person = True
                 rects = page.search_for(ent.text)
                 for r in rects:
-                    # Eğer hem skip_top hem process_limit varsa: r.y0 aralığının içinde olmalı
-                    if skip_top is not None and process_limit is not None:
-                        if not (r.y0 >= skip_top and r.y0 < process_limit):
-                            continue
-                    elif skip_top is not None:
-                        if r.y0 < skip_top:
-                            continue
-                    elif process_limit is not None:
-                        if r.y0 >= process_limit:
-                            continue
-
+                    if skip_top is not None and r.y0 < skip_top:
+                        continue
+                    if process_limit is not None and r.y0 >= process_limit:
+                        continue
                     all_regions.append({
                         "category": "name",
                         "text": ent.text,
@@ -83,32 +81,23 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
                     })
                     page.draw_rect(r, fill=(1, 1, 1))
                     page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
-        if not found_person:
-            # Fallback: İlk %20 satırlarda, satırın tamamı büyük harf ya da isim formatına uygunsa
-            for line in top_text.splitlines():
-                candidate = line.strip()
-                if candidate and len(candidate) < 150 and re.match(r'^([A-Z][a-zA-Z\*]+(?:,\s*[A-Z][a-zA-Z\*]+)+)$', candidate):
-                    rects = page.search_for(candidate)
-                    for r in rects:
-                        if skip_top is not None and process_limit is not None:
-                            if not (r.y0 >= skip_top and r.y0 < process_limit):
-                                continue
-                        elif skip_top is not None:
-                            if r.y0 < skip_top:
-                                continue
-                        elif process_limit is not None:
-                            if r.y0 >= process_limit:
-                                continue
 
-                        all_regions.append({
-                            "category": "name",
-                            "text": candidate,
-                            "rect": [r.x0, r.y0, r.x1, r.y1],
-                            "page": page_index
-                        })
-                        page.draw_rect(r, fill=(1, 1, 1))
-                        page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
-                    break
+        # Manuel olarak eklenen isimleri doğrudan anonimleştir
+        for name in names_to_check:
+            rects = page.search_for(name)
+            for r in rects:
+                if skip_top is not None and r.y0 < skip_top:
+                    continue
+                if process_limit is not None and r.y0 >= process_limit:
+                    continue
+                all_regions.append({
+                    "category": "name",
+                    "text": name,
+                    "rect": [r.x0, r.y0, r.x1, r.y1],
+                    "page": page_index
+                })
+                page.draw_rect(r, fill=(1, 1, 1))
+                page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
 
     # --- E-POSTA (CONTACT) ---
     if options.get("anonymize_contact", False):
@@ -116,16 +105,10 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
             email = match.group(0)
             rects = page.search_for(email)
             for r in rects:
-                if skip_top is not None and process_limit is not None:
-                    if not (r.y0 >= skip_top and r.y0 < process_limit):
-                        continue
-                elif skip_top is not None:
-                    if r.y0 < skip_top:
-                        continue
-                elif process_limit is not None:
-                    if r.y0 >= process_limit:
-                        continue
-
+                if skip_top is not None and r.y0 < skip_top:
+                    continue
+                if process_limit is not None and r.y0 >= process_limit:
+                    continue
                 all_regions.append({
                     "category": "contact",
                     "text": email,
@@ -137,24 +120,15 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
 
     # --- KURUM (ORG) ---
     if options.get("anonymize_institution", False):
-        found_org = False
+        ignore_orgs = {"eeg", "cnn", "convolutional neural network", "ieee", "dataset"}
         for ent in doc.ents:
-            if ent.label_ == "ORG":
-                if ent.text.lower() in ["eeg", "cnn", "convolutional neural network"]:
-                    continue  # İstenmeyen org'ları atla
-                found_org = True
+            if ent.label_ == "ORG" and ent.text.lower() not in ignore_orgs:
                 rects = page.search_for(ent.text)
                 for r in rects:
-                    if skip_top is not None and process_limit is not None:
-                        if not (r.y0 >= skip_top and r.y0 < process_limit):
-                            continue
-                    elif skip_top is not None:
-                        if r.y0 < skip_top:
-                            continue
-                    elif process_limit is not None:
-                        if r.y0 >= process_limit:
-                            continue
-
+                    if skip_top is not None and r.y0 < skip_top:
+                        continue
+                    if process_limit is not None and r.y0 >= process_limit:
+                        continue
                     all_regions.append({
                         "category": "institution",
                         "text": ent.text,
@@ -163,32 +137,27 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
                     })
                     page.draw_rect(r, fill=(1, 1, 1))
                     page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
-        if not found_org:
-            # Fallback: "University" veya "Institute" kelimesi geçen satırlar
-            for line in top_text.splitlines():
-                candidate = line.strip()
-                if candidate and ("university" in candidate.lower() or "institute" in candidate.lower()):
-                    rects = page.search_for(candidate)
-                    for r in rects:
-                        if skip_top is not None and process_limit is not None:
-                            if not (r.y0 >= skip_top and r.y0 < process_limit):
-                                continue
-                        elif skip_top is not None:
-                            if r.y0 < skip_top:
-                                continue
-                        elif process_limit is not None:
-                            if r.y0 >= process_limit:
-                                continue
 
-                        all_regions.append({
-                            "category": "institution",
-                            "text": candidate,
-                            "rect": [r.x0, r.y0, r.x1, r.y1],
-                            "page": page_index
-                        })
-                        page.draw_rect(r, fill=(1, 1, 1))
-                        page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
-                    break
+        # Fallback: "University" veya "Institute" kelimesi geçen satırlar
+        lines = full_text.splitlines()
+        for line in lines:
+            candidate = line.strip()
+            if candidate and ("university" in candidate.lower() or "institute" in candidate.lower()):
+                rects = page.search_for(candidate)
+                for r in rects:
+                    if skip_top is not None and r.y0 < skip_top:
+                        continue
+                    if process_limit is not None and r.y0 >= process_limit:
+                        continue
+                    all_regions.append({
+                        "category": "institution",
+                        "text": candidate,
+                        "rect": [r.x0, r.y0, r.x1, r.y1],
+                        "page": page_index
+                    })
+                    page.draw_rect(r, fill=(1, 1, 1))
+                    page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
+                break
 
 def anonymize_pdf(input_pdf_path, output_pdf_path, options=None):
     if options is None:
