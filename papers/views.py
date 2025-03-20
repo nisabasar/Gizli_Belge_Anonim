@@ -149,28 +149,48 @@ def anonymize_view(request, tracking_number):
     input_path = sub.revised_pdf.path if sub.revised_pdf else sub.original_pdf.path
     filename = os.path.basename(input_path)
     output_path = os.path.join(settings.MEDIA_ROOT, 'anonymized', f"anon_{filename}")
+
     if request.method == "POST":
         form = AnonymizeOptionsForm(request.POST)
+        print("DEBUG: POST geldi, form oluşturuldu.")  # <-- Debug
+
         if form.is_valid():
+            print("DEBUG: form.is_valid() = True")      # <-- Debug
             options = {
                 'anonymize_name': form.cleaned_data['anonymize_name'],
                 'anonymize_contact': form.cleaned_data['anonymize_contact'],
-                'anonymize_institution': form.cleaned_data['anonymize_institution']
+                'anonymize_institution': form.cleaned_data['anonymize_institution'],
+                'blur_images': True  # Fotoğraf bulanıklaştırma da eklendi
             }
+
             regions = anonymize_pdf(input_path, output_path, options)
-            if regions:
+            print("DEBUG: anonymize_pdf regions =", regions)  # <-- Debug
+
+            if regions is not None:
+                # İster regions boş olsun, ister dolu olsun
+                # (Sizin kodda if regions: yapıyorsunuz ama eğer 0 alan bulunduysa
+                #  "Anonimleştirme sırasında hata oluştu." diyordu. İsterseniz bunu değiştirin.)
                 sub.anonymized_pdf.name = os.path.join('anonymized', f"anon_{filename}")
                 sub.status = "Anonimleştirildi"
-                sub.anonymized_data = json.dumps(regions)
+                # İsterseniz 'regions' verisini en azından kaydedin
+                sub.anonymized_data = json.dumps(regions)  # region'lar boş olsa bile
                 sub.save()
                 Log.objects.create(submission=sub, action="Makale anonimleştirildi")
-                messages.success(request, "Makale anonimleştirildi.")
+
+                messages.success(request, f"Makale anonimleştirildi! Bulunan alan sayısı: {len(regions)}")
                 return redirect('editor_dashboard')
             else:
-                messages.error(request, "Anonimleştirme sırasında hata oluştu.")
+                messages.error(request, "Anonimleştirme sırasında hata oluştu (regions is None).")
+        else:
+            print("DEBUG: form.is_valid() = False")     # <-- Debug
+            messages.error(request, "Form doğrulama hatası!")
     else:
         form = AnonymizeOptionsForm()
-    return render(request, 'anonymize_options.html', {'form': form, 'submission': sub})
+
+    return render(request, 'anonymize_options.html', {
+        'form': form,
+        'submission': sub
+    })
 
 
 def assign_reviewer(request, tracking_number):
@@ -238,10 +258,6 @@ def request_revision(request, tracking_number):
     return redirect('editor_dashboard')
 
 
-def view_pdf(request, tracking_number):
-    sub = get_object_or_404(Submission, tracking_number=tracking_number)
-    pdf_path = sub.anonymized_pdf.path if sub.anonymized_pdf else sub.original_pdf.path
-    return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
 
 
 def reply_to_message(request, message_id):
@@ -277,26 +293,27 @@ def finalize_view(request, tracking_number):
     if not sub.reviewed_pdf or not sub.anonymized_data:
         messages.error(request, "Değerlendirilmiş makale veya anonimleştirilmiş bilgiler eksik.")
         return redirect('editor_dashboard')
-
+    
     reviewed_path = sub.reviewed_pdf.path
     final_filename = f"final_{os.path.basename(reviewed_path)}"
     final_path = os.path.join(settings.MEDIA_ROOT, 'final', final_filename)
-
+    
     try:
         regions = json.loads(sub.anonymized_data)
     except Exception as e:
         messages.error(request, f"Anonimleştirilmiş bilgileri okuyamadık: {e}")
         return redirect('editor_dashboard')
-
-    # Tüm kategorileri geri yüklemek istiyorsanız:
+    
+    # restore_original_fields çağrısına categories_to_restore parametresini ekledik:
     success = restore_original_fields(
         input_pdf_path=reviewed_path,
         original_pdf_path=sub.original_pdf.path,
         regions=regions,
-        categories_to_restore=["name", "contact", "institution"],  # Örnek
+        categories_to_restore=["name", "contact", "institution"],
         output_pdf_path=final_path
     )
 
+    
     if success:
         sub.final_pdf.name = os.path.join('final', final_filename)
         sub.status = "Final"
@@ -457,31 +474,26 @@ def restore_original(request, tracking_number):
                 selected.append("contact")
             if form.cleaned_data.get('anonymize_institution'):
                 selected.append("institution")
-
             if not selected:
                 messages.error(request, "Hiçbir alan seçilmedi!")
                 return redirect('editor_dashboard')
-
             if not sub.anonymized_data:
                 messages.error(request, "Anonimleştirme bilgileri bulunamadı.")
                 return redirect('editor_dashboard')
-
             try:
                 regions = json.loads(sub.anonymized_data)
             except Exception as e:
                 messages.error(request, f"Anonimleştirilmiş bilgileri okuyamadık: {e}")
                 return redirect('editor_dashboard')
-
-            # output_pdf_path olarak, orijinal dosyanın üzerine yazmak yerine,
-            # sub.anonymized_pdf.path ile güncelleme yapılacak.
+            
             success = restore_original_fields(
                 input_pdf_path=sub.anonymized_pdf.path,
                 original_pdf_path=sub.original_pdf.path,
                 regions=regions,
-                categories_to_restore=selected,
+                categories_to_restore=selected,  # Seçilen kategoriler gönderiliyor
                 output_pdf_path=sub.anonymized_pdf.path
             )
-
+            
             if success:
                 sub.restored = True
                 sub.status = "Düzenlenmiş"
@@ -496,12 +508,13 @@ def restore_original(request, tracking_number):
         form = AnonymizeOptionsForm()
     return render(request, 'restore_options.html', {'form': form, 'submission': sub})
 
-
 def view_pdf(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
-    pdf_path = sub.original_pdf.path
+    if sub.anonymized_pdf:
+        pdf_path = sub.anonymized_pdf.path
+    else:
+        pdf_path = sub.original_pdf.path
     return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
-
 
 def view_restored_pdf(request, tracking_number):
     sub = get_object_or_404(Submission, tracking_number=tracking_number)
