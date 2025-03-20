@@ -152,28 +152,29 @@ def anonymize_view(request, tracking_number):
 
     if request.method == "POST":
         form = AnonymizeOptionsForm(request.POST)
-        print("DEBUG: POST geldi, form oluşturuldu.")  # <-- Debug
+        print("DEBUG: POST geldi, form oluşturuldu.")
 
         if form.is_valid():
-            print("DEBUG: form.is_valid() = True")      # <-- Debug
+            print("DEBUG: form.is_valid() = True")
+
+            # Formdan gelen değerler
             options = {
                 'anonymize_name': form.cleaned_data['anonymize_name'],
                 'anonymize_contact': form.cleaned_data['anonymize_contact'],
                 'anonymize_institution': form.cleaned_data['anonymize_institution'],
                 'blur_images': True  # Fotoğraf bulanıklaştırma da eklendi
             }
+            print("DEBUG: Gelen options =", options)
 
+            # Anonimleştirme
             regions = anonymize_pdf(input_path, output_path, options)
-            print("DEBUG: anonymize_pdf regions =", regions)  # <-- Debug
+            print("DEBUG: anonymize_pdf regions =", regions)
 
             if regions is not None:
-                # İster regions boş olsun, ister dolu olsun
-                # (Sizin kodda if regions: yapıyorsunuz ama eğer 0 alan bulunduysa
-                #  "Anonimleştirme sırasında hata oluştu." diyordu. İsterseniz bunu değiştirin.)
                 sub.anonymized_pdf.name = os.path.join('anonymized', f"anon_{filename}")
                 sub.status = "Anonimleştirildi"
-                # İsterseniz 'regions' verisini en azından kaydedin
-                sub.anonymized_data = json.dumps(regions)  # region'lar boş olsa bile
+                # (Dilerseniz 'regions' verisini kaydedebilirsiniz)
+                sub.anonymized_data = json.dumps(regions)
                 sub.save()
                 Log.objects.create(submission=sub, action="Makale anonimleştirildi")
 
@@ -182,7 +183,7 @@ def anonymize_view(request, tracking_number):
             else:
                 messages.error(request, "Anonimleştirme sırasında hata oluştu (regions is None).")
         else:
-            print("DEBUG: form.is_valid() = False")     # <-- Debug
+            print("DEBUG: form.is_valid() = False")
             messages.error(request, "Form doğrulama hatası!")
     else:
         form = AnonymizeOptionsForm()

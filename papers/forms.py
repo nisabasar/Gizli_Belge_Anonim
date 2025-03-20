@@ -56,6 +56,6 @@ class ReplyForm(forms.Form):
     )
 
 class AnonymizeOptionsForm(forms.Form):
-    anonymize_name = forms.BooleanField(label="Yazar Ad-Soyad", required=False)
-    anonymize_contact = forms.BooleanField(label="Yazar İletişim Bilgileri", required=False)
-    anonymize_institution = forms.BooleanField(label="Yazar Kurum Bilgileri", required=False)
+    anonymize_name = forms.BooleanField(required=False, label="Yazar Ad-Soyad")
+    anonymize_contact = forms.BooleanField(required=False, label="Yazar İletişim Bilgileri")
+    anonymize_institution = forms.BooleanField(required=False, label="Yazar Kurum Bilgileri")
