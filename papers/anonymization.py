@@ -12,10 +12,8 @@ from PIL import Image, ImageFilter
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
 
-# spaCy modelini yükle (önceden "en_core_web_sm" modelinin yüklü olduğundan emin olun)
 nlp = spacy.load("en_core_web_sm")
 
-# E-posta tespiti için regex
 EMAIL_REGEX = r'[\w\.-]+@[\w\.-]+\.\w+'
 
 def encrypt_data(data_str):
@@ -49,22 +47,49 @@ def blur_image_region(page, bbox, blur_radius=5):
     page.draw_rect(bbox, fill=(1,1,1))
     page.insert_image(bbox, stream=buf.getvalue())
 
+
+# --- Basit bir substitution cipher tablosu (örnek) ---
+# Burada sadece a-z/A-Z harfleri dönüştürüyoruz. Diğer karakterleri olduğu gibi bırakıyoruz.
+lower_map = {}
+upper_map = {}
+# Örnek olarak: 'a' -> '1', 'b' -> '2', ..., 'z' -> '26'
+alphabet = "abcdefghijklmnopqrstuvwxyz"
+for i, ch in enumerate(alphabet):
+    lower_map[ch] = str(i+1)  # 'a'->'1', 'b'->'2', ...
+    upper_map[ch.upper()] = str(i+1) + "*"  # 'A'->'1*', 'B'->'2*' vs.
+
+def custom_cipher(original_text):
+    """Her harfi substitution tablosuna göre dönüştüren basit bir fonksiyon."""
+    result = []
+    for ch in original_text:
+        if ch in lower_map:
+            result.append(lower_map[ch])
+        elif ch in upper_map:
+            result.append(upper_map[ch])
+        else:
+            # Harita dışında kalan karakterleri aynen koru (boşluk, rakam, noktalama vb.)
+            result.append(ch)
+    return "".join(result)
+
+
 def process_page_text(page, process_limit, page_index, options, all_regions, skip_top=None):
     full_text = page.get_text("text")
     doc = nlp(full_text)
 
-    # --- İSİM (PERSON) ---
-    if options.get("anonymize_name", False):
-        names_to_check = [
-            "SUDHAKAR MISHRA",
-            "Diksha Kalra",
-            "S. Indu",
-            "MOHAMMAD ASIF",
-            "AJITHIA TEJAS VINODBHAI",
-            "MAJITHIA TEJAS VINODBHAI"
-        ]
+    # Manuel eklenmiş isim listesi (isterseniz)
+    names_to_check = [
+        "SUDHAKAR MISHRA",
+        "Diksha Kalra",
+        "S. Indu",
+        "MOHAMMAD ASIF",
+        "AJITHIA TEJAS VINODBHAI",
+        "MAJITHIA TEJAS VINODBHAI",
+        "UMA SHANKER TIWARY"
+    ]
 
-        # spaCy ile bulunan isimleri anonimleştir
+    # 1) İsim (PERSON)
+    if options.get("anonymize_name", False):
+        # a) spaCy PERSON
         for ent in doc.ents:
             if ent.label_ == "PERSON":
                 rects = page.search_for(ent.text)
@@ -73,16 +98,23 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
                         continue
                     if process_limit is not None and r.y0 >= process_limit:
                         continue
+
+                    cipher_text = custom_cipher(ent.text)
                     all_regions.append({
                         "category": "name",
-                        "text": ent.text,
+                        "text": ent.text,        # orijinal
+                        "cipher": cipher_text,   # şifreli
                         "rect": [r.x0, r.y0, r.x1, r.y1],
                         "page": page_index
                     })
-                    page.draw_rect(r, fill=(1, 1, 1))
-                    page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
 
-        # Manuel olarak eklenen isimleri doğrudan anonimleştir
+                    page.add_redact_annot(
+                        r,
+                        text=cipher_text,
+                        fill=(1,1,1),
+                    )
+
+        # b) Manuel isim listesi
         for name in names_to_check:
             rects = page.search_for(name)
             for r in rects:
@@ -90,16 +122,23 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
                     continue
                 if process_limit is not None and r.y0 >= process_limit:
                     continue
+
+                cipher_text = custom_cipher(name)
                 all_regions.append({
                     "category": "name",
                     "text": name,
+                    "cipher": cipher_text,
                     "rect": [r.x0, r.y0, r.x1, r.y1],
                     "page": page_index
                 })
-                page.draw_rect(r, fill=(1, 1, 1))
-                page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
 
-    # --- E-POSTA (CONTACT) ---
+                page.add_redact_annot(
+                    r,
+                    text=cipher_text,
+                    fill=(1,1,1),
+                )
+
+    # 2) E-POSTA
     if options.get("anonymize_contact", False):
         for match in re.finditer(EMAIL_REGEX, full_text):
             email = match.group(0)
@@ -109,18 +148,25 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
                     continue
                 if process_limit is not None and r.y0 >= process_limit:
                     continue
+
+                cipher_text = custom_cipher(email)
                 all_regions.append({
                     "category": "contact",
                     "text": email,
+                    "cipher": cipher_text,
                     "rect": [r.x0, r.y0, r.x1, r.y1],
                     "page": page_index
                 })
-                page.draw_rect(r, fill=(1, 1, 1))
-                page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
 
-    # --- KURUM (ORG) ---
+                page.add_redact_annot(
+                    r,
+                    text=cipher_text,
+                    fill=(1,1,1),
+                )
+
+    # 3) Kurum (ORG)
     if options.get("anonymize_institution", False):
-        ignore_orgs = {"eeg", "cnn", "convolutional neural network", "ieee", "dataset"}
+        ignore_orgs = {"eeg", "cnn", "convolutional neural network", "ieee", "dataset", "svm"}
         for ent in doc.ents:
             if ent.label_ == "ORG" and ent.text.lower() not in ignore_orgs:
                 rects = page.search_for(ent.text)
@@ -129,16 +175,23 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
                         continue
                     if process_limit is not None and r.y0 >= process_limit:
                         continue
+
+                    cipher_text = custom_cipher(ent.text)
                     all_regions.append({
                         "category": "institution",
                         "text": ent.text,
+                        "cipher": cipher_text,
                         "rect": [r.x0, r.y0, r.x1, r.y1],
                         "page": page_index
                     })
-                    page.draw_rect(r, fill=(1, 1, 1))
-                    page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
 
-        # Fallback: "University" veya "Institute" kelimesi geçen satırlar
+                    page.add_redact_annot(
+                        r,
+                        text=cipher_text,
+                        fill=(1,1,1),
+                    )
+
+        # Fallback "University"/"Institute"
         lines = full_text.splitlines()
         for line in lines:
             candidate = line.strip()
@@ -149,14 +202,21 @@ def process_page_text(page, process_limit, page_index, options, all_regions, ski
                         continue
                     if process_limit is not None and r.y0 >= process_limit:
                         continue
+
+                    cipher_text = custom_cipher(candidate)
                     all_regions.append({
                         "category": "institution",
                         "text": candidate,
+                        "cipher": cipher_text,
                         "rect": [r.x0, r.y0, r.x1, r.y1],
                         "page": page_index
                     })
-                    page.draw_rect(r, fill=(1, 1, 1))
-                    page.insert_textbox(r, "********", fontsize=12, fontname="helv", color=(0, 0, 0), align=1)
+
+                    page.add_redact_annot(
+                        r,
+                        text=cipher_text,
+                        fill=(1,1,1),
+                    )
                 break
 
 def anonymize_pdf(input_pdf_path, output_pdf_path, options=None):
@@ -195,20 +255,19 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, options=None):
             references_page_index = i
             break
 
-    # 3) Giriş, İlgili Çalışmalar, Teşekkür sayfalarını atlama
+    # 3) "giriş", "ilgili çalışmalar", "teşekkür" sayfalarını atla
     skip_section_keywords = ["giriş", "ilgili çalışmalar", "teşekkür"]
     skip_pages = set()
     for i in range(len(doc)):
         page = doc[i]
-        txt_lower = page.get_text("text").lower()
         page_height = page.rect.height
-        for keyword in skip_section_keywords:
-            rects_keyword = page.search_for(keyword)
-            if rects_keyword:
-                for r in rects_keyword:
-                    if r.y0 < 0.2 * page_height:
-                        skip_pages.add(i)
-                        break
+        txt_lower = page.get_text("text").lower()
+        for kw in skip_section_keywords:
+            kw_rects = page.search_for(kw)
+            for r in kw_rects:
+                if r.y0 < 0.2 * page_height:
+                    skip_pages.add(i)
+                    break
             if i in skip_pages:
                 break
 
@@ -216,17 +275,13 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, options=None):
     for page_index in range(len(doc)):
         page = doc[page_index]
 
-        # Skip sayfaları atla
         if page_index in skip_pages:
             continue
 
-        # İlk sayfa için başlık bölgesini atlamak adına skip_top değeri belirle
         skip_top = None
         if page_index == 0:
-            # Burada sayfa yüksekliğinin %15’i kadarını başlık bölgesi olarak kabul ediyoruz
             skip_top = 0.15 * page.rect.height
 
-        # Abstract'a kadar (veya references sonrası) metin anonimleştirme
         process = False
         process_limit = None
 
@@ -235,18 +290,18 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, options=None):
                 process = True
             elif page_index == abstract_page_index:
                 process = True
-                process_limit = abstract_y  # Abstract kelimesinin üst sınırı
+                process_limit = abstract_y
             elif references_page_index is not None and page_index > references_page_index:
                 process = True
         else:
-            # Abstract bulunamadıysa tüm sayfalar işlenebilir
             process = True
 
-        # Metin anonimleştirme
         if process:
             process_page_text(page, process_limit, page_index, options, all_regions, skip_top=skip_top)
+            # Redaction anotasyonlarını uygula
+            page.apply_redactions()
 
-        # REFERENCES sonrası görsel bulanıklaştırma
+        # REFERENCES'tan sonra görsel bulanıklaştırma
         if references_page_index is not None and page_index > references_page_index and options.get("blur_images", True):
             rawdict = page.get_text("rawdict")
             for block in rawdict.get("blocks", []):
@@ -264,43 +319,104 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, options=None):
     doc.close()
     return all_regions
 
+def custom_decipher(cipher_text):
+    """
+    custom_cipher ile şifrelenen metni tersine çevirir.
+    Dikkat: Bu basit dönüşüm, bazı durumlarda (örneğin 10 vs. 1+0) belirsizlik yaratabilir.
+    """
+    lower_rev = {v: k for k, v in lower_map.items()}   # Örn: "1" -> "a", "2" -> "b", ..., "26" -> "z"
+    upper_rev = {v: k for k, v in upper_map.items()}   # Örn: "1*" -> "A", "2*" -> "B", ..., "26*" -> "Z"
+    
+    result = []
+    i = 0
+    while i < len(cipher_text):
+        if cipher_text[i].isdigit():
+            j = i
+            while j < len(cipher_text) and cipher_text[j].isdigit():
+                j += 1
+            # Eğer rakamları takip eden '*' varsa, uppercase harf
+            if j < len(cipher_text) and cipher_text[j] == '*':
+                num_str = cipher_text[i:j] + '*'
+                if num_str in upper_rev:
+                    result.append(upper_rev[num_str])
+                else:
+                    result.append(num_str)
+                i = j + 1
+            else:
+                # Küçük harf için: önce iki haneli dene, yoksa tek haneli
+                if i + 1 < len(cipher_text) and cipher_text[i:i+2] in lower_rev:
+                    result.append(lower_rev[cipher_text[i:i+2]])
+                    i += 2
+                elif cipher_text[i] in lower_rev:
+                    result.append(lower_rev[cipher_text[i]])
+                    i += 1
+                else:
+                    # Eşleşme yoksa karakteri aynen ekle
+                    result.append(cipher_text[i])
+                    i += 1
+        else:
+            result.append(cipher_text[i])
+            i += 1
+    return "".join(result)
+
 def restore_original_fields(input_pdf_path, original_pdf_path, regions,
                             categories_to_restore, output_pdf_path):
-    try:
-        doc = fitz.open(input_pdf_path)
-        orig_doc = fitz.open(original_pdf_path)
-        os.makedirs(os.path.dirname(output_pdf_path), exist_ok=True)
+    import fitz
+    doc = fitz.open(input_pdf_path)
+    orig_doc = fitz.open(original_pdf_path)
+    os.makedirs(os.path.dirname(output_pdf_path), exist_ok=True)
 
-        for region in regions:
-            cat = region.get("category", "")
-            if cat not in categories_to_restore:
+    for region in regions:
+        cat = region.get("category", "")
+        if cat not in categories_to_restore:
+            continue
+        page_num = region.get("page", 0)
+        if page_num >= len(doc):
+            continue
+
+        coords = region.get("rect", [])
+        if len(coords) != 4:
+            continue
+
+        rect = fitz.Rect(*coords)
+        page = doc[page_num]
+
+        if cat in ["name", "contact", "institution"]:
+            cipher_text = region.get("cipher", "")
+            if not cipher_text.strip():
                 continue
-            page_num = region.get("page", 0)
-            if page_num >= len(doc) or page_num >= len(orig_doc):
-                continue
-            coords = region.get("rect", [])
-            if len(coords) != 4:
-                continue
+            decrypted_text = custom_decipher(cipher_text)
 
-            rect = fitz.Rect(*coords)
-            doc_page = doc[page_num]
-            orig_page = orig_doc[page_num]
-            pix = orig_page.get_pixmap(clip=rect)
-            img_bytes = pix.tobytes("png")
+            # Metni gerçekten PDF'ten sil:
+            page.add_redact_annot(rect, text="", fill=None)
+            page.apply_redactions()
 
-            # Arka planı beyaza boyayıp orijinal resmi veya metni geri koyuyoruz
-            doc_page.draw_rect(rect, fill=(1,1,1))
-            doc_page.insert_image(rect, stream=img_bytes)
+            # Debug: dikdörtgen boyutunu ve metni yazdır
+            print(f"Rect: {rect}, Decrypted: '{decrypted_text}'")
 
-        temp_path = output_pdf_path + ".temp"
-        doc.save(temp_path)
-        doc.close()
-        orig_doc.close()
-        os.replace(temp_path, output_pdf_path)
-        return True
-    except Exception as e:
-        print("restore_original_fields error:", e)
-        return False
+            # Metni ekle - basit bir (x, y) ile deneyin:
+            x, y = rect.x0, rect.y0 + 2  # +2 piksel kaydırma
+            page.insert_text(
+                (x, y),
+                decrypted_text,
+                fontsize=8,
+                color=(0, 0, 0),
+                overlay=True
+            )
+
+        elif cat == "image":
+            if page_num < len(orig_doc):
+                orig_page = orig_doc[page_num]
+                pix = orig_page.get_pixmap(clip=rect)
+                img_bytes = pix.tobytes("png")
+                page.insert_image(rect, stream=img_bytes, overlay=True)
+
+    temp_path = output_pdf_path + ".temp"
+    doc.save(temp_path)
+    doc.close()
+    orig_doc.close()
+    os.replace(temp_path, output_pdf_path)
+    return True
 
 def merge_review_comments(input_pdf_path, review_text, output_pdf_path):
     try:
@@ -315,13 +431,13 @@ def merge_review_comments(input_pdf_path, review_text, output_pdf_path):
         print("merge_review_comments error:", e)
         return False
 
-def merge_and_restore(input_pdf_path, anonymized_data, output_pdf_path):
+def merge_and_restore(input_pdf_path, anonymized_data, output_pdf_path, original_pdf_path):
     try:
         decrypted_json = decrypt_data(anonymized_data)
         regions = json.loads(decrypted_json)
         return restore_original_fields(
             input_pdf_path=input_pdf_path,
-            original_pdf_path=input_pdf_path,
+            original_pdf_path=original_pdf_path,  # <-- Gerçek orijinal PDF
             regions=regions,
             categories_to_restore=["name", "contact", "institution", "image"],
             output_pdf_path=output_pdf_path
@@ -329,3 +445,5 @@ def merge_and_restore(input_pdf_path, anonymized_data, output_pdf_path):
     except Exception as e:
         print("merge_and_restore error:", e)
         return False
+
+

@@ -310,9 +310,10 @@ def finalize_view(request, tracking_number):
         input_pdf_path=reviewed_path,
         original_pdf_path=sub.original_pdf.path,
         regions=regions,
-        categories_to_restore=["name", "contact", "institution"],
+        categories_to_restore=["name", "contact", "institution", "image"],  # "image" eklendi
         output_pdf_path=final_path
     )
+
 
     
     if success:
